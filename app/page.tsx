@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 type Severity = "stop_driving" | "drive_to_shop" | "monitor";
 
 function sevToScore(sev: Severity | null): number {
-  // 0 = low urgency, 100 = high urgency
   if (sev === "stop_driving") return 92;
   if (sev === "drive_to_shop") return 60;
   if (sev === "monitor") return 28;
@@ -14,8 +13,8 @@ function sevToScore(sev: Severity | null): number {
 
 function sevLabel(sev: Severity | null) {
   if (sev === "stop_driving") return "STOP DRIVING";
-  if (sev === "drive_to_shop") return "DRIVE TO SHOP";
-  if (sev === "monitor") return "MONITOR";
+  if (sev === "drive_to_shop") return "DRIVE TO SHOP CAREFULLY";
+  if (sev === "monitor") return "SAFE TO DRIVE / MONITOR";
   return "READY";
 }
 
@@ -139,11 +138,32 @@ function Speedometer({ value, label }: { value: number; label: string }) {
   );
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result?.toString() || "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Page() {
+  const [vin, setVin] = useState("");
   const [vehicle, setVehicle] = useState("2010 Honda Accord 2.4L");
   const [symptoms, setSymptoms] = useState("");
   const [codes, setCodes] = useState("");
   const [context, setContext] = useState("");
+
+  const [dashboardPhoto, setDashboardPhoto] = useState<File | null>(null);
+  const [partPhoto, setPartPhoto] = useState<File | null>(null);
+
+  const [dashboardPreview, setDashboardPreview] = useState("");
+  const [partPreview, setPartPreview] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
@@ -162,6 +182,24 @@ export default function Page() {
     return () => clearTimeout(t);
   }, [targetScore]);
 
+  function handleDashboardFile(file: File | null) {
+    setDashboardPhoto(file);
+    if (!file) {
+      setDashboardPreview("");
+      return;
+    }
+    setDashboardPreview(URL.createObjectURL(file));
+  }
+
+  function handlePartFile(file: File | null) {
+    setPartPhoto(file);
+    if (!file) {
+      setPartPreview("");
+      return;
+    }
+    setPartPreview(URL.createObjectURL(file));
+  }
+
   async function runDiagnosis() {
     setLoading(true);
     setError("");
@@ -169,10 +207,33 @@ export default function Page() {
     setGaugeScore(0);
 
     try {
+      const dashboardPhotoBase64 = dashboardPhoto ? await fileToBase64(dashboardPhoto) : null;
+      const partPhotoBase64 = partPhoto ? await fileToBase64(partPhoto) : null;
+
       const res = await fetch("/api/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehicle, symptoms, codes, context }),
+        body: JSON.stringify({
+          vin,
+          vehicle,
+          symptoms,
+          codes,
+          context,
+          dashboardPhoto: dashboardPhotoBase64
+            ? {
+                name: dashboardPhoto?.name,
+                type: dashboardPhoto?.type,
+                data: dashboardPhotoBase64,
+              }
+            : null,
+          partPhoto: partPhotoBase64
+            ? {
+                name: partPhoto?.name,
+                type: partPhoto?.type,
+                data: partPhotoBase64,
+              }
+            : null,
+        }),
       });
 
       const text = await res.text();
@@ -189,20 +250,20 @@ export default function Page() {
   }
 
   const smsHref =
-    "sms:+17865388691?body=Hi%20I%20used%20Smart%20Fix%20AI%20and%20need%20help%20with%20my%20car.%20Vehicle%3A%20" +
+    "sms:+17865388691?body=Hi%20I%20used%20Smart%20Fix%20AI%20and%20need%20help%20with%20my%20car.%20VIN%3A%20" +
+    encodeURIComponent(vin) +
+    "%20Vehicle%3A%20" +
     encodeURIComponent(vehicle) +
     "%20Symptoms%3A%20" +
     encodeURIComponent(symptoms);
 
   return (
     <main className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Dashboard glow background */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-black to-red-900 opacity-40" />
       <div className="absolute w-[860px] h-[860px] bg-blue-600 rounded-full blur-3xl opacity-20 -top-56 -left-56" />
       <div className="absolute w-[760px] h-[760px] bg-red-600 rounded-full blur-3xl opacity-20 -bottom-40 -right-40" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 space-y-10">
-        {/* Header */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 space-y-10">
         <header className="flex flex-col items-center gap-3 text-center">
           <div className="flex items-center gap-3">
             <CarMark />
@@ -213,25 +274,42 @@ export default function Page() {
             </h1>
           </div>
           <p className="text-gray-300 text-lg">
-            Free AI Diagnosis → Text Smart Fix to book mobile service.
+            Built by Smart Fix Mobile Auto Repair — smarter diagnostics, faster help.
           </p>
           <CheckEngineIcon pulse={loading} sev={severity} />
         </header>
 
-        {/* Form */}
-        <section className="bg-gray-900/80 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl p-6 space-y-5">
+        <section className="bg-gray-900/80 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={vin}
+              onChange={(e) => setVin(e.target.value.toUpperCase())}
+              placeholder="VIN Number (optional for V2 lookup)"
+              maxLength={17}
+            />
+
             <input
               className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={vehicle}
               onChange={(e) => setVehicle(e.target.value)}
               placeholder="Vehicle (Year Make Model Engine)"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={codes}
               onChange={(e) => setCodes(e.target.value)}
-              placeholder="OBD Codes / Warning Lights (optional)"
+              placeholder="OBD Codes / Warning Lights"
+            />
+
+            <input
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder="Context (when it happens, after repairs, weather, speed...)"
             />
           </div>
 
@@ -240,22 +318,72 @@ export default function Page() {
             rows={6}
             value={symptoms}
             onChange={(e) => setSymptoms(e.target.value)}
-            placeholder="Describe the problem in detail (sounds, smells, lights, when it happens)..."
+            placeholder="Describe the problem in detail. Example: Battery light on, voltage stays around 12V while driving, vehicle dies after 10 minutes."
           />
 
-          <input
-            className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            placeholder="Context (weather, speed, after repairs, only when turning, etc.)"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gray-800/70 border border-gray-700 rounded-2xl p-4 space-y-3">
+              <div>
+                <h3 className="text-lg font-bold">Upload Dashboard Photo</h3>
+                <p className="text-sm text-gray-300">
+                  Upload a dashboard warning light photo and Smart Fix AI will try to explain what it means.
+                </p>
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDashboardFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+              />
+
+              {dashboardPreview && (
+                <img
+                  src={dashboardPreview}
+                  alt="Dashboard preview"
+                  className="w-full h-48 object-cover rounded-xl border border-gray-700"
+                />
+              )}
+            </div>
+
+            <div className="bg-gray-800/70 border border-gray-700 rounded-2xl p-4 space-y-3">
+              <div>
+                <h3 className="text-lg font-bold">Upload Car Part Photo</h3>
+                <p className="text-sm text-gray-300">
+                  Upload any car-part photo and Smart Fix AI will try to explain what it is, where it is, and how it may be replaced.
+                </p>
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handlePartFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-red-600 file:text-white hover:file:bg-red-700"
+              />
+
+              {partPreview && (
+                <img
+                  src={partPreview}
+                  alt="Part preview"
+                  className="w-full h-48 object-cover rounded-xl border border-gray-700"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="bg-yellow-500/15 border border-yellow-400/30 text-yellow-100 rounded-xl p-4 text-sm">
+            <span className="font-bold">Important Notice:</span> Image-based analysis is an AI estimate and may not always be exact.
+            Lighting, camera angle, image quality, and vehicle differences can affect identification.
+            Always verify warning lights, part identification, and repair steps before replacing components
+            or continuing to drive.
+          </div>
 
           <button
             onClick={runDiagnosis}
             disabled={loading}
             className="w-full bg-gradient-to-r from-blue-600 to-red-600 hover:opacity-90 transition-all font-semibold py-3 rounded-xl shadow-lg disabled:opacity-60"
           >
-            {loading ? "Running Full System Scan..." : "Run Full Diagnostic"}
+            {loading ? "Running Full Smart Fix Scan..." : "Run Full Diagnostic"}
           </button>
 
           {error && (
@@ -265,7 +393,6 @@ export default function Page() {
           )}
         </section>
 
-        {/* Gauge + Results */}
         <section className="space-y-6">
           <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6 shadow-lg">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -287,12 +414,82 @@ export default function Page() {
 
           {result && (
             <>
-              <div className={`p-6 rounded-2xl shadow-xl text-center border ${sevBanner(severity)}`}>
-                <h3 className="text-2xl font-extrabold uppercase tracking-wider">
-                  {sevLabel(severity)}
-                </h3>
-                <p className="mt-2 text-white/95">{result.summary}</p>
+              <div className={`p-6 rounded-2xl shadow-xl border ${sevBanner(severity)}`}>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/80">
+                      Can I Drive?
+                    </p>
+                    <h3 className="text-2xl font-extrabold uppercase tracking-wider mt-1">
+                      {sevLabel(severity)}
+                    </h3>
+                  </div>
+                  <div className="text-sm text-white/90">
+                    Smart Fix safety recommendation
+                  </div>
+                </div>
+
+                <p className="mt-4 text-white/95">{result.summary}</p>
               </div>
+
+              {result?.vin_lookup && (
+                <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6 shadow-lg">
+                  <h3 className="text-xl font-bold mb-4">🔎 VIN Lookup</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-200">
+                    <div><span className="font-semibold">VIN:</span> {result.vin_lookup.vin || vin}</div>
+                    <div><span className="font-semibold">Year:</span> {result.vin_lookup.year || "—"}</div>
+                    <div><span className="font-semibold">Make:</span> {result.vin_lookup.make || "—"}</div>
+                    <div><span className="font-semibold">Model:</span> {result.vin_lookup.model || "—"}</div>
+                    <div><span className="font-semibold">Engine:</span> {result.vin_lookup.engine || "—"}</div>
+                    <div><span className="font-semibold">Trim:</span> {result.vin_lookup.trim || "—"}</div>
+                  </div>
+                </div>
+              )}
+
+              {(result?.dashboard_analysis || result?.part_analysis) && (
+                <div className="bg-yellow-500/15 border border-yellow-400/30 text-yellow-100 rounded-xl p-4 text-sm">
+                  <span className="font-bold">Smart Fix AI Image Notice:</span> Photo analysis helps guide you but may not always be perfectly accurate.
+                  For safety-critical issues, confirm the warning light or part before repair or continued driving.
+                </div>
+              )}
+
+              {result?.dashboard_analysis && (
+                <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6 shadow-lg">
+                  <h3 className="text-xl font-bold mb-4">📸 Dashboard Photo Analysis</h3>
+                  <div className="space-y-3 text-gray-200">
+                    <p><span className="font-semibold">Detected warning:</span> {result.dashboard_analysis.detected_warning || "Not identified"}</p>
+                    <p><span className="font-semibold">Meaning:</span> {result.dashboard_analysis.meaning || "—"}</p>
+                    <p><span className="font-semibold">Urgency:</span> {result.dashboard_analysis.urgency || "—"}</p>
+                    <p><span className="font-semibold">What to do next:</span> {result.dashboard_analysis.next_steps || "—"}</p>
+                    {result.dashboard_analysis.confidence_note && (
+                      <p className="text-sm text-gray-400">
+                        {result.dashboard_analysis.confidence_note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {result?.part_analysis && (
+                <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6 shadow-lg">
+                  <h3 className="text-xl font-bold mb-4">🧩 Car Part Photo Analysis</h3>
+                  <div className="space-y-3 text-gray-200">
+                    <p><span className="font-semibold">Likely part:</span> {result.part_analysis.part_name || "Not identified"}</p>
+                    <p><span className="font-semibold">What it does:</span> {result.part_analysis.function || "—"}</p>
+                    <p><span className="font-semibold">Where it is located:</span> {result.part_analysis.location || "—"}</p>
+                    <p><span className="font-semibold">Why it matters:</span> {result.part_analysis.importance || "—"}</p>
+                    <p><span className="font-semibold">Remove / replace overview:</span> {result.part_analysis.replace_overview || "—"}</p>
+                    {result.part_analysis.caution_notes && (
+                      <p><span className="font-semibold">Caution:</span> {result.part_analysis.caution_notes}</p>
+                    )}
+                    {result.part_analysis.confidence_note && (
+                      <p className="text-sm text-gray-400">
+                        {result.part_analysis.confidence_note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {result?.likely_causes && (
                 <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6 shadow-lg">
@@ -341,7 +538,9 @@ export default function Page() {
                       <p className="text-3xl font-extrabold">
                         ${result.estimated_cost_range_usd.low} – ${result.estimated_cost_range_usd.high}
                       </p>
-                      <p className="text-gray-300 text-sm mt-2">{result.estimated_cost_range_usd.notes}</p>
+                      <p className="text-gray-300 text-sm mt-2">
+                        {result.estimated_cost_range_usd.notes}
+                      </p>
                     </div>
                   )}
                   {result?.safety_notes && (
@@ -357,7 +556,6 @@ export default function Page() {
                 </div>
               )}
 
-              {/* TEXT ONLY BOOKING CTA */}
               <div className="bg-gradient-to-r from-blue-600 to-red-600 p-8 rounded-2xl shadow-2xl text-center mt-10">
                 <h3 className="text-2xl font-extrabold uppercase tracking-wide">
                   🚗 Need It Fixed?
@@ -377,18 +575,9 @@ export default function Page() {
                 </a>
 
                 <p className="text-xs text-white/80 mt-4">
-                  Your text will include your vehicle + symptoms automatically.
+                  Your text will include VIN, vehicle, and symptoms automatically.
                 </p>
               </div>
-
-              <details className="bg-gray-900/50 border border-gray-700 rounded-2xl p-4">
-                <summary className="cursor-pointer font-semibold text-gray-200">
-                  Raw JSON (debug)
-                </summary>
-                <pre className="whitespace-pre-wrap mt-3 text-xs text-gray-200">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              </details>
             </>
           )}
         </section>
