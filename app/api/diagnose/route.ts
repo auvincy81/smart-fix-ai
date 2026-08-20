@@ -2,203 +2,176 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-type UploadedImage =
-  | {
-      name?: string;
-      type?: string;
-      data?: string;
-    }
-  | null
-  | undefined;
+type JsonRecord = Record<string, unknown>;
+type UploadedImage = { name?: string; type?: string; data?: string } | null;
+
+type VinLookup = {
+  vin: string;
+  year: string;
+  make: string;
+  model: string;
+  engine: string;
+  trim: string;
+  note: string;
+};
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+function number(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => text(item)).filter(Boolean) : [];
+}
+
+function record(value: unknown): JsonRecord {
+  return isRecord(value) ? value : {};
+}
+
+function uploadedImage(value: unknown): UploadedImage {
+  if (!isRecord(value)) return null;
+  return {
+    name: text(value.name),
+    type: text(value.type),
+    data: text(value.data),
+  };
+}
 
 function buildDataUrl(image: UploadedImage): string | null {
   if (!image?.data) return null;
-  const mime = image.type || "image/jpeg";
-  return `data:${mime};base64,${image.data}`;
+  return `data:${image.type || "image/jpeg"};base64,${image.data}`;
 }
 
-async function decodeVin(vin: string) {
+async function decodeVin(vin: string): Promise<VinLookup> {
   const cleanVin = vin.trim().toUpperCase();
 
   if (cleanVin.length !== 17) {
-    return {
-      vin: cleanVin,
-      year: "",
-      make: "",
-      model: "",
-      engine: "",
-      trim: "",
-      note: "VIN must be 17 characters for full lookup.",
-    };
+    return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN must be 17 characters for full lookup." };
   }
 
   try {
-    const url = `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(
-      cleanVin
-    )}?format=json`;
+    const response = await fetch(
+      `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(cleanVin)}?format=json`,
+      { method: "GET", cache: "no-store" }
+    );
 
-    const res = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return {
-        vin: cleanVin,
-        year: "",
-        make: "",
-        model: "",
-        engine: "",
-        trim: "",
-        note: "VIN lookup service did not respond successfully.",
-      };
+    if (!response.ok) {
+      return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN lookup service did not respond successfully." };
     }
 
-    const data = await res.json();
-    const row = data?.Results?.[0] ?? {};
+    const payload = (await response.json()) as { Results?: JsonRecord[] };
+    const row = payload.Results?.[0] ?? {};
 
     return {
       vin: cleanVin,
-      year: row.ModelYear || "",
-      make: row.Make || "",
-      model: row.Model || "",
-      engine:
-        row.DisplacementL ||
-        row.EngineConfiguration ||
-        row.EngineModel ||
-        "",
-      trim: row.Trim || "",
+      year: text(row.ModelYear),
+      make: text(row.Make),
+      model: text(row.Model),
+      engine: text(row.DisplacementL) || text(row.EngineConfiguration) || text(row.EngineModel),
+      trim: text(row.Trim),
       note: "",
     };
   } catch {
-    return {
-      vin: cleanVin,
-      year: "",
-      make: "",
-      model: "",
-      engine: "",
-      trim: "",
-      note: "VIN lookup could not be completed.",
-    };
+    return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN lookup could not be completed." };
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return Response.json(
-        { error: "Server misconfigured: OPENAI_API_KEY is missing." },
-        { status: 500 }
-      );
+      return Response.json({ error: "Server misconfigured: OPENAI_API_KEY is missing." }, { status: 500 });
     }
 
-    const client = new OpenAI({ apiKey });
+    const rawBody: unknown = await request.json();
+    const body = record(rawBody);
 
-    const body = await req.json();
-
-    const vin = String(body?.vin ?? "").trim().toUpperCase();
-    const vehicle = String(body?.vehicle ?? "").trim();
-    const symptoms = String(body?.symptoms ?? "").trim();
-    const codes = String(body?.codes ?? "").trim();
-    const context = String(body?.context ?? "").trim();
-
-    const dashboardPhoto = body?.dashboardPhoto as UploadedImage;
-    const partPhoto = body?.partPhoto as UploadedImage;
-
+    const vin = text(body.vin).trim().toUpperCase();
+    const vehicle = text(body.vehicle).trim();
+    const symptoms = text(body.symptoms).trim();
+    const codes = text(body.codes).trim();
+    const context = text(body.context).trim();
+    const dashboardPhoto = uploadedImage(body.dashboardPhoto);
+    const partPhoto = uploadedImage(body.partPhoto);
     const dashboardDataUrl = buildDataUrl(dashboardPhoto);
     const partDataUrl = buildDataUrl(partPhoto);
 
     if (!vin && !vehicle && !symptoms && !codes && !context && !dashboardDataUrl && !partDataUrl) {
       return Response.json(
-        {
-          error:
-            "Please provide at least one of the following: symptoms, vehicle, VIN, dashboard photo, or car-part photo.",
-        },
+        { error: "Please provide symptoms, vehicle information, VIN, a dashboard photo, or a car-part photo." },
         { status: 400 }
       );
     }
 
     const vinLookup = vin ? await decodeVin(vin) : null;
-
     const userContent: Array<
       | { type: "text"; text: string }
-      | {
-          type: "image_url";
-          image_url: { url: string };
-        }
-    > = [];
-
-    userContent.push({
-      type: "text",
-      text: [
-        "Analyze the following vehicle issue and return ONLY valid JSON.",
-        "",
-        `VIN: ${vin || "None provided"}`,
-        `Vehicle: ${vehicle || "None provided"}`,
-        `Symptoms: ${symptoms || "None provided"}`,
-        `Codes/Lights: ${codes || "None provided"}`,
-        `Context: ${context || "None provided"}`,
-        "",
-        "VIN lookup result (if available):",
-        vinLookup
-          ? JSON.stringify(vinLookup, null, 2)
-          : "No VIN lookup available.",
-        "",
-        "If a dashboard photo is provided, identify the warning/indicator if possible.",
-        "If a car-part photo is provided, identify the likely part if possible.",
-        "If uncertain, say so clearly and do not overclaim.",
-        "",
-        "Return JSON with EXACTLY these top-level fields:",
-        "summary",
-        "severity",
-        "likely_causes",
-        "quick_checks",
-        "recommended_tests",
-        "estimated_cost_range_usd",
-        "follow_up_questions",
-        "safety_notes",
-        "vin_lookup",
-        "dashboard_analysis",
-        "part_analysis",
-        "",
-        "Rules:",
-        '- severity must be one of: "stop_driving", "drive_to_shop", "monitor"',
-        "- likely_causes must be an array of objects: { cause, probability, why }",
-        "- probability should be a number from 0 to 1",
-        "- estimated_cost_range_usd must be: { low, high, notes }",
-        "- vin_lookup must be an object with: { vin, year, make, model, engine, trim, note }",
-        "- dashboard_analysis must be an object with: { detected_warning, meaning, urgency, next_steps, confidence_note }",
-        "- part_analysis must be an object with: { part_name, function, location, importance, replace_overview, caution_notes, confidence_note }",
-        "- If no dashboard photo was provided, dashboard_analysis should still be present with empty strings and a note.",
-        "- If no part photo was provided, part_analysis should still be present with empty strings and a note.",
-        "- If no VIN was provided, vin_lookup should still be present with empty strings and a note.",
-        "- Be practical, safety-first, and useful for a mobile mechanic workflow.",
-      ].join("\n"),
-    });
+      | { type: "image_url"; image_url: { url: string } }
+    > = [
+      {
+        type: "text",
+        text: [
+          "Analyze the following vehicle issue and return ONLY valid JSON.",
+          "",
+          `VIN: ${vin || "None provided"}`,
+          `Vehicle: ${vehicle || "None provided"}`,
+          `Symptoms: ${symptoms || "None provided"}`,
+          `Codes/Lights: ${codes || "None provided"}`,
+          `Context: ${context || "None provided"}`,
+          "",
+          "VIN lookup result (if available):",
+          vinLookup ? JSON.stringify(vinLookup, null, 2) : "No VIN lookup available.",
+          "",
+          "If a dashboard photo is provided, identify the warning/indicator if possible.",
+          "If a car-part photo is provided, identify the likely part if possible.",
+          "If uncertain, say so clearly and do not overclaim.",
+          "",
+          "Return JSON with EXACTLY these top-level fields:",
+          "summary",
+          "severity",
+          "likely_causes",
+          "quick_checks",
+          "recommended_tests",
+          "estimated_cost_range_usd",
+          "follow_up_questions",
+          "safety_notes",
+          "vin_lookup",
+          "dashboard_analysis",
+          "part_analysis",
+          "",
+          "Rules:",
+          '- severity must be one of: "stop_driving", "drive_to_shop", "monitor"',
+          "- likely_causes must be an array of objects: { cause, probability, why }",
+          "- probability should be a number from 0 to 1",
+          "- estimated_cost_range_usd must be: { low, high, notes }",
+          "- vin_lookup must be an object with: { vin, year, make, model, engine, trim, note }",
+          "- dashboard_analysis must be an object with: { detected_warning, meaning, urgency, next_steps, confidence_note }",
+          "- part_analysis must be an object with: { part_name, function, location, importance, replace_overview, caution_notes, confidence_note }",
+          "- Keep unavailable image-analysis fields present with empty strings and a confidence note.",
+          "- Keep vin_lookup present even when VIN is unavailable.",
+          "- Be practical, conservative on safety, and useful for a professional automotive workflow.",
+        ].join("\n"),
+      },
+    ];
 
     if (dashboardDataUrl) {
-      userContent.push({
-        type: "text",
-        text: "Here is the dashboard photo to analyze:",
-      });
-      userContent.push({
-        type: "image_url",
-        image_url: { url: dashboardDataUrl },
-      });
+      userContent.push({ type: "text", text: "Here is the dashboard photo to analyze:" });
+      userContent.push({ type: "image_url", image_url: { url: dashboardDataUrl } });
     }
 
     if (partDataUrl) {
-      userContent.push({
-        type: "text",
-        text: "Here is the car-part photo to analyze:",
-      });
-      userContent.push({
-        type: "image_url",
-        image_url: { url: partDataUrl },
-      });
+      userContent.push({ type: "text", text: "Here is the automotive part photo to analyze:" });
+      userContent.push({ type: "image_url", image_url: { url: partDataUrl } });
     }
 
+    const client = new OpenAI({ apiKey });
     const completion = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       temperature: 0.2,
@@ -206,107 +179,83 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content:
-            "You are Smart Fix AI, a professional automotive diagnostic assistant. You help drivers and a real mobile mechanic. Be conservative on safety-critical issues. Return ONLY valid JSON.",
+          content: "You are MekaReports AI Diagnosis, a professional automotive diagnostic assistant evolved from Smart Fix AI. Be conservative on safety-critical issues. Return ONLY valid JSON.",
         },
-        {
-          role: "user",
-          content: userContent,
-        },
+        { role: "user", content: userContent },
       ],
     });
 
-    const text = completion.choices?.[0]?.message?.content ?? "{}";
-
-    let parsed: any;
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let parsedUnknown: unknown;
     try {
-      parsed = JSON.parse(text);
+      parsedUnknown = JSON.parse(raw);
     } catch {
-      return Response.json(
-        {
-          error: "Model returned invalid JSON.",
-          raw: text,
-        },
-        { status: 500 }
-      );
+      return Response.json({ error: "Model returned invalid JSON.", raw }, { status: 500 });
     }
 
-    const normalized = {
-      summary: String(parsed?.summary ?? ""),
-      severity:
-        parsed?.severity === "stop_driving" ||
-        parsed?.severity === "drive_to_shop" ||
-        parsed?.severity === "monitor"
-          ? parsed.severity
-          : "monitor",
-      likely_causes: Array.isArray(parsed?.likely_causes)
-        ? parsed.likely_causes.map((item: any) => ({
-            cause: String(item?.cause ?? ""),
-            probability:
-              typeof item?.probability === "number"
-                ? item.probability
-                : 0,
-            why: String(item?.why ?? ""),
-          }))
-        : [],
-      quick_checks: Array.isArray(parsed?.quick_checks)
-        ? parsed.quick_checks.map((x: any) => String(x))
-        : [],
-      recommended_tests: Array.isArray(parsed?.recommended_tests)
-        ? parsed.recommended_tests.map((x: any) => String(x))
-        : [],
+    const parsed = record(parsedUnknown);
+    const cost = record(parsed.estimated_cost_range_usd);
+    const vinResult = record(parsed.vin_lookup);
+    const dashboard = record(parsed.dashboard_analysis);
+    const part = record(parsed.part_analysis);
+
+    const causes = Array.isArray(parsed.likely_causes)
+      ? parsed.likely_causes.map((item) => {
+          const cause = record(item);
+          return {
+            cause: text(cause.cause),
+            probability: Math.max(0, Math.min(1, number(cause.probability))),
+            why: text(cause.why),
+          };
+        })
+      : [];
+
+    const severity =
+      parsed.severity === "stop_driving" || parsed.severity === "drive_to_shop" || parsed.severity === "monitor"
+        ? parsed.severity
+        : "monitor";
+
+    return Response.json({
+      summary: text(parsed.summary),
+      severity,
+      likely_causes: causes,
+      quick_checks: stringArray(parsed.quick_checks),
+      recommended_tests: stringArray(parsed.recommended_tests),
       estimated_cost_range_usd: {
-        low: Number(parsed?.estimated_cost_range_usd?.low ?? 0),
-        high: Number(parsed?.estimated_cost_range_usd?.high ?? 0),
-        notes: String(parsed?.estimated_cost_range_usd?.notes ?? ""),
+        low: number(cost.low),
+        high: number(cost.high),
+        notes: text(cost.notes),
       },
-      follow_up_questions: Array.isArray(parsed?.follow_up_questions)
-        ? parsed.follow_up_questions.map((x: any) => String(x))
-        : [],
-      safety_notes: Array.isArray(parsed?.safety_notes)
-        ? parsed.safety_notes.map((x: any) => String(x))
-        : [],
+      follow_up_questions: stringArray(parsed.follow_up_questions),
+      safety_notes: stringArray(parsed.safety_notes),
       vin_lookup: {
-        vin: String(parsed?.vin_lookup?.vin ?? vinLookup?.vin ?? vin ?? ""),
-        year: String(parsed?.vin_lookup?.year ?? vinLookup?.year ?? ""),
-        make: String(parsed?.vin_lookup?.make ?? vinLookup?.make ?? ""),
-        model: String(parsed?.vin_lookup?.model ?? vinLookup?.model ?? ""),
-        engine: String(parsed?.vin_lookup?.engine ?? vinLookup?.engine ?? ""),
-        trim: String(parsed?.vin_lookup?.trim ?? vinLookup?.trim ?? ""),
-        note: String(parsed?.vin_lookup?.note ?? vinLookup?.note ?? (vin ? "" : "No VIN provided.")),
+        vin: text(vinResult.vin) || vinLookup?.vin || vin,
+        year: text(vinResult.year) || vinLookup?.year || "",
+        make: text(vinResult.make) || vinLookup?.make || "",
+        model: text(vinResult.model) || vinLookup?.model || "",
+        engine: text(vinResult.engine) || vinLookup?.engine || "",
+        trim: text(vinResult.trim) || vinLookup?.trim || "",
+        note: text(vinResult.note) || vinLookup?.note || (vin ? "" : "No VIN was provided."),
       },
       dashboard_analysis: {
-        detected_warning: String(parsed?.dashboard_analysis?.detected_warning ?? ""),
-        meaning: String(parsed?.dashboard_analysis?.meaning ?? ""),
-        urgency: String(parsed?.dashboard_analysis?.urgency ?? ""),
-        next_steps: String(parsed?.dashboard_analysis?.next_steps ?? ""),
-        confidence_note: String(
-          parsed?.dashboard_analysis?.confidence_note ??
-            (dashboardDataUrl ? "" : "No dashboard photo provided.")
-        ),
+        detected_warning: text(dashboard.detected_warning),
+        meaning: text(dashboard.meaning),
+        urgency: text(dashboard.urgency),
+        next_steps: text(dashboard.next_steps),
+        confidence_note: text(dashboard.confidence_note) || (dashboardDataUrl ? "" : "No dashboard photo was provided."),
       },
       part_analysis: {
-        part_name: String(parsed?.part_analysis?.part_name ?? ""),
-        function: String(parsed?.part_analysis?.function ?? ""),
-        location: String(parsed?.part_analysis?.location ?? ""),
-        importance: String(parsed?.part_analysis?.importance ?? ""),
-        replace_overview: String(parsed?.part_analysis?.replace_overview ?? ""),
-        caution_notes: String(parsed?.part_analysis?.caution_notes ?? ""),
-        confidence_note: String(
-          parsed?.part_analysis?.confidence_note ??
-            (partDataUrl ? "" : "No car-part photo provided.")
-        ),
+        part_name: text(part.part_name),
+        function: text(part.function),
+        location: text(part.location),
+        importance: text(part.importance),
+        replace_overview: text(part.replace_overview),
+        caution_notes: text(part.caution_notes),
+        confidence_note: text(part.confidence_note) || (partDataUrl ? "" : "No part photo was provided."),
       },
-    };
-
-    return Response.json(normalized);
-  } catch (err: any) {
-    return Response.json(
-      {
-        error: "Server error",
-        details: String(err?.message || err),
-      },
-      { status: 500 }
-    );
+    });
+  } catch (caught: unknown) {
+    const message = caught instanceof Error ? caught.message : "Unexpected diagnostic error.";
+    return Response.json({ error: "Diagnosis could not be completed.", details: message }, { status: 500 });
   }
 }
