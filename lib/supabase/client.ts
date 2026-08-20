@@ -1,9 +1,18 @@
-import { getSupabasePublicConfig } from "./config";
+import { createBrowserClient } from "@supabase/ssr";
+import { getSupabasePublicConfig, isSupabaseConfigured } from "./config";
 
 /**
- * Reports whether browser Supabase configuration is available.
- * Client creation remains deferred until MekaReports has its own cloud project and Phase 3 auth policies.
+ * Creates the cookie-aware browser client when MekaReports has public Supabase
+ * configuration. Local development remains usable when it does not.
  */
-export function isSupabaseClientConfigured(): boolean {
-  return getSupabasePublicConfig() !== null;
+export function createBrowserSupabaseClient() {
+  const config = getSupabasePublicConfig();
+
+  if (!config) {
+    return null;
+  }
+
+  return createBrowserClient(config.url, config.publishableKey);
 }
+
+export const isSupabaseClientConfigured = isSupabaseConfigured;

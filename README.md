@@ -24,11 +24,26 @@ Customer → Vehicle → Appointment → Work Order → Diagnosis → Inspection
 - Row Level Security is enabled on every business table with no public policies. Until Phase 3, direct public-client access is intentionally denied.
 - Framework-independent TypeScript domain types live in `types/mekareports.ts`.
 
-The schema is local and is **not linked to any cloud project**. No Mapou Academy or VannPro database or Supabase project is used or modified by MekaReports.
+The schema is local and is **not linked to any cloud project**. MekaReports is not connected to Mapou Academy or VannPro, and neither project is used or modified.
 
-### Phase 3 — Dedicated Supabase connection
+### Phase 3A — Supabase SDK and Auth foundation
 
-Phase 3 will create and connect MekaReports to its own Supabase cloud project, add authentication, link `shop_members.user_id` to Supabase Auth, implement shop-scoped RLS policies, generate database types, and build real CRUD workflows. Do not use the schema from a browser client until those authorization policies exist.
+- Browser and server Supabase factories use `@supabase/ssr` and safely return `null` without public configuration.
+- A controlled authentication service supports email/password sign-in, sign-up, sign-out, verified current-user lookup, and future shop context lookup.
+- `/login` provides the MekaReports account UI without protecting or changing access to the local dashboard.
+- `shop_members` remains the authoritative multi-shop role source; roles are never read from editable user metadata.
+- A new migration links `shop_members.user_id` to `auth.users(id)` with membership cleanup when an Auth user is deleted.
+- The cloud connection, session-refresh proxy activation, and production RLS policies remain disabled.
+
+### Phase 3B — Planned cloud activation
+
+- Create and connect a dedicated MekaReports Supabase project.
+- Apply and verify migrations, configure Auth, and generate database types.
+- Activate SSR session refresh.
+- Implement and test `auth.uid()` + `shop_members` + `shop_id` RLS policies.
+- Create owner/shop onboarding and protect application routes.
+
+The intended authorization and proxy architecture is documented in [`docs/supabase-auth-architecture.md`](docs/supabase-auth-architecture.md). Do not use business tables from a browser client until shop-scoped policies are implemented and tested.
 
 ## Local configuration
 

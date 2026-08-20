@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { AppSidebar } from "./app-sidebar";
 
 type AppShellProps = {
@@ -9,6 +10,11 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  if (pathname === "/login") {
+    return children;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
