@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { signInWithEmail, signUpWithEmail } from "@/lib/auth/actions";
 
 type LoginFormProps = { configured: boolean };
 type Notice = { tone: "success" | "error"; message: string } | null;
 
 export function LoginForm({ configured }: LoginFormProps) {
+  const router = useRouter();
   const [pendingAction, setPendingAction] = useState<"sign-in" | "sign-up" | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -28,12 +30,14 @@ export function LoginForm({ configured }: LoginFormProps) {
         return;
       }
 
-      setNotice({
-        tone: "success",
-        message: result.data.requiresEmailConfirmation
-          ? "Account started. Check your email to confirm your address. Shop onboarding will follow."
-          : "Account created. Shop onboarding will follow.",
-      });
+      if (result.data.requiresEmailConfirmation) {
+        setNotice({
+          tone: "success",
+          message: "Account started. Check your email to confirm your address. Shop onboarding will follow.",
+        });
+        setPendingAction(null);
+        return;
+      }
     } else {
       const result = await signInWithEmail(email, password);
       if (!result.ok) {
@@ -41,11 +45,10 @@ export function LoginForm({ configured }: LoginFormProps) {
         setPendingAction(null);
         return;
       }
-
-      setNotice({ tone: "success", message: "Signed in successfully." });
     }
 
-    setPendingAction(null);
+    router.replace("/");
+    router.refresh();
   }
 
   return (

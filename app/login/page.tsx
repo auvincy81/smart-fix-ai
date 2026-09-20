@@ -1,8 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentAuthenticatedUser } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const result = await getCurrentAuthenticatedUser();
+  if (result.ok && result.data) {
+    redirect("/");
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
       <div className="w-full max-w-md">
