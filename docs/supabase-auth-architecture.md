@@ -1,6 +1,6 @@
 # Supabase authentication architecture
 
-Phase 4 uses the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
+Phases 4 and 5 use the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
 
 ## Identity and shop authorization
 
@@ -9,13 +9,13 @@ Phase 4 uses the dedicated local MekaReports Supabase stack. No remote project i
 - Editable `user_metadata` must never authorize shop access.
 - Deleting an Auth user cascades only to their membership rows. Shops remain, and nullable operational references to memberships retain history.
 
-RLS policies now cover shops, own memberships, customers, and vehicles. Every business operation is scoped by `(select auth.uid())`, authoritative membership, and the record's `shop_id`. Other business tables remain closed pending their workflow phases. See [Phase 4 implementation and verification](phase-4-workflow.md).
+RLS policies cover shops, own memberships, customers, vehicles, appointments, and work orders. Every business operation is scoped by `(select auth.uid())`, authoritative membership, and the record's `shop_id`. Other business tables remain closed pending their workflow phases. See [Phase 4 implementation and verification](phase-4-workflow.md) and [Phase 5 jobs](phase-5-workflow.md).
 
 ## SSR session lifecycle
 
 The browser and server client factories return `null` while public Supabase configuration is absent. Server identity checks use `auth.getUser()` rather than trusting the user embedded in `getSession()`.
 
-The root `proxy.ts` activates `lib/supabase/proxy.ts` only for login, onboarding, customers, vehicles, and the vehicle VIN endpoint. It refreshes cookies using `getClaims()`; pages and server actions still verify the current user with `getUser()`. The dashboard and legacy workflows remain open. Shop-context results are cached only within a React server request, never globally across users.
+The root `proxy.ts` activates `lib/supabase/proxy.ts` for the dashboard, login, onboarding, customers, vehicles, appointments, work orders, diagnosis, and the vehicle VIN endpoint. It refreshes cookies using `getClaims()`; pages and server actions still verify the current user with `getUser()`. The dashboard and standalone diagnosis remain open. Diagnosis launched with a work-order ID requires verified shop access and a matching vehicle. Shop-context results are cached only within a React server request, never globally across users.
 
 ## Shop context and onboarding
 

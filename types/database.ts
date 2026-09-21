@@ -65,6 +65,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_vehicle_customer_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "customer_id", "id"]
+          },
+          {
             foreignKeyName: "appointments_vehicle_fk"
             columns: ["shop_id", "vehicle_id"]
             isOneToOne: false
@@ -117,6 +124,13 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customer_questions_appointment_fk"
+            columns: ["shop_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
           {
             foreignKeyName: "customer_questions_appointment_fk"
             columns: ["shop_id", "appointment_id"]
@@ -278,6 +292,13 @@ export type Database = {
             foreignKeyName: "diagnoses_work_order_fk"
             columns: ["shop_id", "work_order_id"]
             isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
             referencedRelation: "work_orders"
             referencedColumns: ["shop_id", "id"]
           },
@@ -393,6 +414,13 @@ export type Database = {
             foreignKeyName: "inspections_work_order_fk"
             columns: ["shop_id", "work_order_id"]
             isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
             referencedRelation: "work_orders"
             referencedColumns: ["shop_id", "id"]
           },
@@ -455,6 +483,13 @@ export type Database = {
             columns: ["shop_id", "vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "repair_reports_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
             referencedColumns: ["shop_id", "id"]
           },
           {
@@ -535,6 +570,13 @@ export type Database = {
             columns: ["shop_id", "vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "service_recommendations_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
             referencedColumns: ["shop_id", "id"]
           },
           {
@@ -751,6 +793,13 @@ export type Database = {
             foreignKeyName: "work_order_services_work_order_fk"
             columns: ["shop_id", "work_order_id"]
             isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_order_services_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
             referencedRelation: "work_orders"
             referencedColumns: ["shop_id", "id"]
           },
@@ -791,7 +840,7 @@ export type Database = {
           technician_notes?: string | null
           updated_at?: string
           vehicle_id: string
-          work_order_number: string
+          work_order_number?: string
         }
         Update: {
           appointment_id?: string | null
@@ -812,6 +861,27 @@ export type Database = {
           work_order_number?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "work_orders_appointment_context_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_listing"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_context_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_fk"
+            columns: ["shop_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
           {
             foreignKeyName: "work_orders_appointment_fk"
             columns: ["shop_id", "appointment_id"]
@@ -841,6 +911,13 @@ export type Database = {
             referencedColumns: ["shop_id", "id"]
           },
           {
+            foreignKeyName: "work_orders_vehicle_customer_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "customer_id", "id"]
+          },
+          {
             foreignKeyName: "work_orders_vehicle_fk"
             columns: ["shop_id", "vehicle_id"]
             isOneToOne: false
@@ -851,7 +928,142 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      appointment_listing: {
+        Row: {
+          created_at: string | null
+          customer_concern: string | null
+          customer_id: string | null
+          customer_name: string | null
+          id: string | null
+          internal_notes: string | null
+          scheduled_end: string | null
+          scheduled_start: string | null
+          shop_id: string | null
+          status: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+          vehicle_name: string | null
+          vin: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_customer_fk"
+            columns: ["shop_id", "customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "appointments_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_vehicle_customer_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "customer_id", "id"]
+          },
+          {
+            foreignKeyName: "appointments_vehicle_fk"
+            columns: ["shop_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      work_order_listing: {
+        Row: {
+          appointment_id: string | null
+          assigned_technician_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_complaint: string | null
+          customer_id: string | null
+          customer_name: string | null
+          id: string | null
+          mileage_in: number | null
+          mileage_out: number | null
+          opened_at: string | null
+          shop_id: string | null
+          status: string | null
+          technician_notes: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+          vehicle_name: string | null
+          vin: string | null
+          work_order_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_appointment_context_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_listing"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_context_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_fk"
+            columns: ["shop_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_fk"
+            columns: ["shop_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_customer_fk"
+            columns: ["shop_id", "customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_technician_fk"
+            columns: ["shop_id", "assigned_technician_id"]
+            isOneToOne: false
+            referencedRelation: "shop_members"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_vehicle_customer_fk"
+            columns: ["shop_id", "customer_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "customer_id", "id"]
+          },
+          {
+            foreignKeyName: "work_orders_vehicle_fk"
+            columns: ["shop_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
     }
     Functions: {
       create_initial_shop: {
@@ -865,6 +1077,13 @@ export type Database = {
           p_state?: string
         }
         Returns: string
+      }
+      list_shop_technicians: {
+        Args: { p_shop_id: string }
+        Returns: {
+          id: string
+          label: string
+        }[]
       }
     }
     Enums: {

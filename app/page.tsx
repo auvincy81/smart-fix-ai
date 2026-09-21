@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { DashboardCard } from "@/components/dashboard-card";
 import { PageHeader } from "@/components/page-header";
+import { DashboardSnapshot } from "@/components/jobs/dashboard-snapshot";
 
 const cards = [
-  ["Today's Appointments", "Appointment scheduling is not connected yet."],
-  ["Vehicles In Service", "Live bay and repair status will appear here."],
-  ["Open Work Orders", "Work orders will populate after the data phase."],
-  ["Waiting for Customer Approval", "Estimate approvals will be tracked here."],
   ["Completed Today", "Completed services will be summarized here."],
   ["Upcoming Services", "Future service recommendations will appear here."],
   ["Customer Questions", "New customer concerns will be surfaced here."],
@@ -15,9 +12,9 @@ const cards = [
 const quickActions = [
   ["New Customer", "/customers/new"],
   ["Add Vehicle", "/vehicles/new"],
-  ["New Work Order", "/work-orders"],
+  ["New Work Order", "/work-orders/new"],
   ["Start Diagnosis", "/diagnosis"],
-  ["Schedule Appointment", "/appointments"],
+  ["Schedule Appointment", "/appointments/new"],
 ] as const;
 
 export default function DashboardPage() {
@@ -40,9 +37,10 @@ export default function DashboardPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Shop Snapshot</h2>
-          <span className="text-xs text-slate-400">Service operations not connected yet</span>
+          <span className="text-xs text-slate-400">Appointments and work orders</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardSnapshot />
           {cards.map(([label, detail]) => (
             <DashboardCard key={label} label={label} detail={detail} />
           ))}
@@ -58,8 +56,8 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-            <p className="font-semibold text-slate-700">No shop activity is connected yet.</p>
-            <p className="mt-1 text-sm text-slate-500">Phase 1 intentionally contains no fake production records.</p>
+            <p className="font-semibold text-slate-700">A combined activity timeline is coming later.</p>
+            <p className="mt-1 text-sm text-slate-500">View current activity in Appointments and Work Orders.</p>
           </div>
         </section>
 

@@ -1,6 +1,7 @@
+import { RelatedJobs } from "@/components/jobs/job-ui";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { Details, EmptyState, formatDate, panel, Pagination, primaryLink, secondaryLink, ServiceHistory, vehicleTitle } from "@/components/workshop/record-ui";
+import { Details, EmptyState, formatDate, panel, Pagination, primaryLink, secondaryLink, vehicleTitle } from "@/components/workshop/record-ui";
 import { requireShopContext } from "@/lib/auth/session";
 import { getCustomer, workshopDb, searchParams as parseSearch } from "@/lib/workshop/data";
 import { canManageRecords } from "@/lib/workshop/permissions";
@@ -14,9 +15,9 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   if (error) throw new Error("Vehicle records are temporarily unavailable.");
   const canEdit = canManageRecords(context.role);
   return <><Link href="/customers" className="mb-4 inline-block text-sm font-semibold text-slate-600">← Customers</Link><PageHeader eyebrow={context.shop.name} title={`${customer.firstName} ${customer.lastName}`} description={`Customer since ${formatDate(customer.createdAt)}`} action={canEdit ? <Link className={secondaryLink} href={`/customers/${customer.id}/edit`}>Edit Customer</Link> : undefined} />
-    <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]"><section className={panel}><h2 className="mb-5 text-lg font-bold">Contact information</h2><Details entries={[["Phone", customer.phone], ["Email", customer.email], ["Address", [customer.address, customer.city, customer.state, customer.postalCode].filter(Boolean).join(", ") || null], ["Notes", customer.notes]]} /></section>
+    <div className="mb-5">{canEdit ? <Link className={primaryLink} href={`/appointments/new?customerId=${customer.id}`}>Schedule Appointment</Link> : null}</div><div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]"><section className={panel}><h2 className="mb-5 text-lg font-bold">Contact information</h2><Details entries={[["Phone", customer.phone], ["Email", customer.email], ["Address", [customer.address, customer.city, customer.state, customer.postalCode].filter(Boolean).join(", ") || null], ["Notes", customer.notes]]} /></section>
       <section className={panel}><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Linked vehicles</h2>{canEdit ? <Link className={primaryLink} href={`/vehicles/new?customerId=${customer.id}`}>Add Vehicle</Link> : null}</div>
         {vehicles.length ? <ul className="divide-y divide-slate-100">{vehicles.map((vehicle) => <li key={vehicle.id} className="py-4"><Link href={`/vehicles/${vehicle.id}`} className="font-bold text-red-700 hover:underline">{vehicleTitle(vehicle)}</Link><p className="mt-1 text-sm text-slate-500">VIN: {vehicle.vin || "Not provided"} · {vehicle.mileage?.toLocaleString("en-US") ?? "—"} miles</p></li>)}</ul> : <EmptyState title="No linked vehicles" description="Add a vehicle to keep its details with this customer." />}
         <Pagination base={`/customers/${customer.id}`} q="" page={page} count={count ?? 0} />
-      </section><div className="xl:col-span-2"><ServiceHistory /></div></div></>;
+      </section><div className="xl:col-span-2"><RelatedJobs shopId={context.shop.id} customerId={customer.id} /></div></div></>;
 }
