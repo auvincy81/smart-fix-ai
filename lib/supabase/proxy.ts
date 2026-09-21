@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabasePublicConfig } from "./config";
 
-/** Phase 3B helper. It is intentionally not wired to a root proxy.ts. */
+/** Refresh cookies on account and real-data routes; pages verify identity themselves. */
 export async function refreshSupabaseSession(request: NextRequest) {
   const config = getSupabasePublicConfig();
   let response = NextResponse.next({ request });

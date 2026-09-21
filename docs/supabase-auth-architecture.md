@@ -1,6 +1,6 @@
 # Supabase authentication architecture
 
-Phase 3A prepares authentication without connecting or changing a cloud project.
+Phase 4 uses the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
 
 ## Identity and shop authorization
 
@@ -9,22 +9,20 @@ Phase 3A prepares authentication without connecting or changing a cloud project.
 - Editable `user_metadata` must never authorize shop access.
 - Deleting an Auth user cascades only to their membership rows. Shops remain, and nullable operational references to memberships retain history.
 
-RLS remains enabled with no broad authenticated policies. Phase 3B will implement and test policies that combine `(select auth.uid())`, `shop_members`, and each row's `shop_id`. Every operation must prove that the authenticated user has membership in the target shop. No policy may grant all authenticated users access to all shops.
+RLS policies now cover shops, own memberships, customers, and vehicles. Every business operation is scoped by `(select auth.uid())`, authoritative membership, and the record's `shop_id`. Other business tables remain closed pending their workflow phases. See [Phase 4 implementation and verification](phase-4-workflow.md).
 
 ## SSR session lifecycle
 
 The browser and server client factories return `null` while public Supabase configuration is absent. Server identity checks use `auth.getUser()` rather than trusting the user embedded in `getSession()`.
 
-`lib/supabase/proxy.ts` contains the inactive session-refresh helper. Phase 3B will add a root `proxy.ts`, call that helper, scope its matcher to application routes, and validate refreshed identity with `auth.getClaims()`. It will be activated only after the dedicated MekaReports project, Auth settings, route behavior, and caching behavior can be tested together.
+The root `proxy.ts` activates `lib/supabase/proxy.ts` only for login, onboarding, customers, vehicles, and the vehicle VIN endpoint. It refreshes cookies using `getClaims()`; pages and server actions still verify the current user with `getUser()`. The dashboard and legacy workflows remain open. Shop-context results are cached only within a React server request, never globally across users.
 
-## Phase 3B activation checklist
+## Shop context and onboarding
 
-1. Create and connect only the dedicated MekaReports Supabase project.
-2. Apply and verify migrations, then generate database types.
-3. Configure email/password Auth and approved redirect URLs.
-4. Implement and test membership-scoped RLS for every business table.
-5. Build owner onboarding that creates a shop and its initial owner membership safely.
-6. Activate SSR session refresh and protect application routes.
-7. Test sign-in, refresh, sign-out, multi-shop selection, isolation, and authorization failures end to end.
+`requireShopContext()` redirects signed-out users to `/login` and users without membership to `/onboarding`. Database errors produce a recoverable error view rather than treating a failed lookup as an absent membership. If multiple memberships exist, the earliest membership (then ID as a stable tie-breaker) is used until a shop selector is introduced.
+
+The `create_initial_shop` RPC uses only `auth.uid()`, locks the Auth user row, rejects existing membership, and creates the shop plus owner membership in one transaction. `SECURITY DEFINER` is required because clients have no shop or membership INSERT permission. The function has an empty search path, fully qualified table references, and authenticated-only execution. No authorization helper or recursive membership policy is required.
+
+Server actions validate fields with Zod and derive the shop ID from context. RLS remains the final authority for direct API requests. Column-level UPDATE grants also prevent changing a customer's or vehicle's shop ID, including users with access to more than one shop.
 
 MekaReports is not connected to Mapou Academy or VannPro.

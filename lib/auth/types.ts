@@ -8,6 +8,7 @@ export type AuthFailureCode =
   | "SIGN_OUT_FAILED"
   | "AUTHENTICATION_FAILED"
   | "NOT_AUTHENTICATED"
+  | "NO_SHOP_MEMBERSHIP"
   | "SHOP_CONTEXT_UNAVAILABLE";
 
 export type AuthResult<T = undefined> =

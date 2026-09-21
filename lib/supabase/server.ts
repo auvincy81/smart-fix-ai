@@ -1,12 +1,13 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { Database } from "@/types/database";
 import { getSupabasePublicConfig } from "./config";
 
 /**
  * Creates a new cookie-aware server client for the current request. Cookie writes
  * can be rejected in Server Components, so those writes are safely deferred to
- * the Phase 3B session-refresh proxy.
+ * the session-refresh proxy on account and real-data routes.
  */
 export async function createServerSupabaseClient() {
   const config = getSupabasePublicConfig();
@@ -17,7 +18,7 @@ export async function createServerSupabaseClient() {
 
   const cookieStore = await cookies();
 
-  return createServerClient(config.url, config.publishableKey, {
+  return createServerClient<Database>(config.url, config.publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -28,8 +29,8 @@ export async function createServerSupabaseClient() {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components cannot mutate cookies. Phase 3B's proxy will
-          // perform refresh writes before protected routes render.
+          // Server Components cannot mutate cookies. The scoped proxy performs
+          // refresh writes before account and real-data routes render.
         }
       },
     },

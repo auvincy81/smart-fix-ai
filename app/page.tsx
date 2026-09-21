@@ -13,8 +13,8 @@ const cards = [
 ] as const;
 
 const quickActions = [
-  ["New Customer", "/customers"],
-  ["Add Vehicle", "/vehicles"],
+  ["New Customer", "/customers/new"],
+  ["Add Vehicle", "/vehicles/new"],
   ["New Work Order", "/work-orders"],
   ["Start Diagnosis", "/diagnosis"],
   ["Schedule Appointment", "/appointments"],
@@ -40,7 +40,7 @@ export default function DashboardPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Shop Snapshot</h2>
-          <span className="text-xs text-slate-400">Backend not connected</span>
+          <span className="text-xs text-slate-400">Service operations not connected yet</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map(([label, detail]) => (

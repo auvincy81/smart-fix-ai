@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { redirect } from "next/navigation";
 
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -25,7 +27,7 @@ export async function getCurrentAuthenticatedUser(): Promise<AuthResult<User | n
   return { ok: true, data: data.user };
 }
 
-export async function getCurrentShopContext(): Promise<AuthResult<AuthenticatedShopContext>> {
+export const getCurrentShopContext = cache(async (): Promise<AuthResult<AuthenticatedShopContext>> => {
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
     return { ok: false, code: "SUPABASE_NOT_CONFIGURED", message: "MekaReports account services are not connected yet." };
@@ -40,9 +42,14 @@ export async function getCurrentShopContext(): Promise<AuthResult<AuthenticatedS
     .from("shop_members")
     .select("id, shop_id, user_id, role, created_at")
     .eq("user_id", userData.user.id)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
     .limit(1)
     .maybeSingle();
 
+  if (!membershipError && !membershipData) {
+    return { ok: false, code: "NO_SHOP_MEMBERSHIP", message: "Set up your repair shop to get started." };
+  }
   if (membershipError || !membershipData || !isShopMemberRole(membershipData.role)) {
     return { ok: false, code: "SHOP_CONTEXT_UNAVAILABLE", message: "No available shop workspace was found for this account." };
   }
@@ -78,4 +85,12 @@ export async function getCurrentShopContext(): Promise<AuthResult<AuthenticatedS
   };
 
   return { ok: true, data: { user: userData.user, shop, membership, role: membership.role } };
+});
+
+export async function requireShopContext(): Promise<AuthenticatedShopContext> {
+  const result = await getCurrentShopContext();
+  if (result.ok) return result.data;
+  if (result.code === "NOT_AUTHENTICATED" || result.code === "SUPABASE_NOT_CONFIGURED") redirect("/login");
+  if (result.code === "NO_SHOP_MEMBERSHIP") redirect("/onboarding");
+  throw new Error("Your shop workspace is temporarily unavailable. Please try again.");
 }

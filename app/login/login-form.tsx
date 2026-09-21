@@ -33,7 +33,7 @@ export function LoginForm({ configured }: LoginFormProps) {
       if (result.data.requiresEmailConfirmation) {
         setNotice({
           tone: "success",
-          message: "Account started. Check your email to confirm your address. Shop onboarding will follow.",
+          message: "Account started. Check your email to confirm your address, then sign in to set up your shop.",
         });
         setPendingAction(null);
         return;
@@ -114,7 +114,7 @@ export function LoginForm({ configured }: LoginFormProps) {
         </button>
       </div>
       <p className="text-center text-xs leading-5 text-slate-500">
-        Shop creation and owner onboarding will be activated after the dedicated MekaReports cloud project is connected.
+        After signing in, open Customers or Vehicles to set up your shop workspace.
       </p>
     </form>
   );

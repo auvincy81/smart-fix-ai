@@ -1,19 +1,10 @@
+import { decodeVin } from "@/lib/vin";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
 type JsonRecord = Record<string, unknown>;
 type UploadedImage = { name?: string; type?: string; data?: string } | null;
-
-type VinLookup = {
-  vin: string;
-  year: string;
-  make: string;
-  model: string;
-  engine: string;
-  trim: string;
-  note: string;
-};
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -47,40 +38,6 @@ function uploadedImage(value: unknown): UploadedImage {
 function buildDataUrl(image: UploadedImage): string | null {
   if (!image?.data) return null;
   return `data:${image.type || "image/jpeg"};base64,${image.data}`;
-}
-
-async function decodeVin(vin: string): Promise<VinLookup> {
-  const cleanVin = vin.trim().toUpperCase();
-
-  if (cleanVin.length !== 17) {
-    return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN must be 17 characters for full lookup." };
-  }
-
-  try {
-    const response = await fetch(
-      `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(cleanVin)}?format=json`,
-      { method: "GET", cache: "no-store" }
-    );
-
-    if (!response.ok) {
-      return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN lookup service did not respond successfully." };
-    }
-
-    const payload = (await response.json()) as { Results?: JsonRecord[] };
-    const row = payload.Results?.[0] ?? {};
-
-    return {
-      vin: cleanVin,
-      year: text(row.ModelYear),
-      make: text(row.Make),
-      model: text(row.Model),
-      engine: text(row.DisplacementL) || text(row.EngineConfiguration) || text(row.EngineModel),
-      trim: text(row.Trim),
-      note: "",
-    };
-  } catch {
-    return { vin: cleanVin, year: "", make: "", model: "", engine: "", trim: "", note: "VIN lookup could not be completed." };
-  }
 }
 
 export async function POST(request: Request) {
