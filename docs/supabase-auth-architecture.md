@@ -1,6 +1,6 @@
 # Supabase authentication architecture
 
-Phases 4 through 7 use the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
+Phases 4 through 8 use the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
 
 ## Identity and shop authorization
 
@@ -38,3 +38,9 @@ The private `inspection-photos` bucket uses shop/inspection/UUID paths and paren
 Phase 7 adds shop-scoped read RLS and narrow mutation RPCs for recommendations, services, parts, estimate snapshots, approval requests, and immutable authorization audits. Owners/managers/service advisors manage estimates; technicians can perform authorized repairs without estimate-management permissions. Internal part cost and token hashes have no ordinary authenticated SELECT grant. Estimate and recommendation shop routes participate in session refresh and still verify identity with `getUser()`.
 
 The public approval page/API intentionally skip shop-session middleware and use a cookie-free publishable-key client. A database-generated 256-bit token authorizes only its frozen estimate; PostgreSQL stores its SHA-256 hash, verifies expiry/current version, and serializes decisions under locks. Anonymous users cannot read the underlying tables. An explicit customer projection excludes internal notes/costs and database IDs. Completed repairs and presented snapshots are protected from client edits, while nullable deleted-staff references can clear without destroying history. See [Phase 7 implementation and verification](phase-7-workflow.md).
+
+## Customer documents and communication
+
+Phase 8 adds shop-scoped invoices, payments, receipts, document links, and communication history. Owner/manager/service_advisor manage these records; technicians may read repair reports but not financial or communication data. Each server action verifies identity and membership, and database RPCs independently enforce role/context and transaction rules. Public document routes use a cookie-free client and a hash-verified, expiring, revocable token bound to one immutable customer projection. They expose neither business tables nor credentials/internal costs. No service-role key is used.
+
+Local email is captured in Mailpit and labelled development-only. SMS without a provider stays unsent/draft. Delivery status cannot be submitted by anonymous callers, and no path invents confirmed delivery. See [Phase 8 implementation, migrations, and verification](phase-8-workflow.md).

@@ -1,3 +1,4 @@
+import { SendDocumentLink } from "@/components/documents/shop-documents";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Details, panel, primaryLink, secondaryLink, vehicleTitle } from "@/components/workshop/record-ui";
@@ -18,6 +19,7 @@ export default async function AppointmentPage({ params, searchParams }: { params
   const canEdit = canManageRecords(context.role);
   return <><Link className="mb-4 inline-block text-sm font-semibold text-slate-600" href="/appointments">← Appointments</Link><PageHeader eyebrow={context.shop.name} title="Appointment" description={`${formatTime(appointment.scheduledStart)} · America/New_York`} action={canEdit ? <Link className={secondaryLink} href={`/appointments/${appointment.id}/edit`}>Edit Appointment</Link> : undefined} />
     {(feedback.saved || feedback.updated) ? <p role="status" className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{feedback.updated ? "Status updated successfully." : "Appointment saved."}{appointment.status === "checked_in" ? " Check-in is complete. You can now create a work order." : ""}</p> : null}
+    {canEdit && ["requested", "confirmed"].includes(appointment.status) ? <div className="mb-6"><SendDocumentLink kind="appointment_reminder" id={appointment.id} label="Send Appointment Reminder" /></div> : null}
     <div className="space-y-6"><section className={panel}><div className="mb-5 flex flex-wrap items-center gap-3"><StatusBadge status={appointment.status} />{canEdit && !order ? appointmentTransitions[appointment.status].map((status) => <StatusAction kind="appointment" id={appointment.id} status={status} key={status} />) : null}</div>
       <div className="mb-6 grid gap-5 sm:grid-cols-2"><div><p className="text-xs font-bold uppercase text-slate-500">Customer</p><Link className="mt-1 inline-block font-bold text-red-700" href={`/customers/${customer.id}`}>{customer.firstName} {customer.lastName}</Link></div><div><p className="text-xs font-bold uppercase text-slate-500">Vehicle</p>{vehicle ? <Link className="mt-1 inline-block font-bold text-red-700" href={`/vehicles/${vehicle.id}`}>{vehicleTitle(vehicle)}</Link> : <p className="mt-1 text-sm">Select a vehicle before creating a work order.</p>}</div></div>
       <Details entries={[["Scheduled start", formatTime(appointment.scheduledStart)], ["Scheduled end", appointment.scheduledEnd ? formatTime(appointment.scheduledEnd) : null], ["Customer concern", appointment.customerConcern], ["Internal notes", appointment.internalNotes]]} /></section>

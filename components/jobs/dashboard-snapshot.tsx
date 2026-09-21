@@ -16,7 +16,7 @@ export async function DashboardSnapshot() {
     db.from("work_orders").select("id", { count: "exact", head: true }).eq("shop_id", shopId).in("status", active),
     db.from("work_orders").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("status", "waiting_approval"),
     db.from("work_orders").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("status", "completed").gte("completed_at", bounds.start).lt("completed_at", bounds.end),
-    db.from("service_recommendations").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("status", "recommended").or(`recommended_date.gte.${bounds.start.slice(0, 10)},recommended_mileage.not.is.null`),
+    db.from("service_reminder_readiness").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("status", "recommended").eq("due_state", "upcoming"),
   ]);
   const vehicleIds = new Set<string>();
   let vehiclesFailed = false;
@@ -27,6 +27,6 @@ export async function DashboardSnapshot() {
     if (data.length < 500) break;
   }
   const values = [appointments.error ? undefined : String(appointments.count ?? 0), vehiclesFailed ? undefined : String(vehicleIds.size), orders.error ? undefined : String(orders.count ?? 0), approvals.error ? undefined : String(approvals.count ?? 0), completed.error ? undefined : String(completed.count ?? 0), recommendations.error ? undefined : String(recommendations.count ?? 0)];
-  const details = ["Today's visits in New York time, excluding cancelled and no-show.", "Distinct vehicles on active work orders.", "Active jobs, excluding drafts, completed and cancelled.", "Jobs with status Waiting Approval.", "Work orders completed today in New York time.", "Unperformed recommendations with an upcoming date or a mileage target."];
+  const details = ["Today's visits in New York time, excluding cancelled and no-show.", "Distinct vehicles on active work orders.", "Active jobs, excluding drafts, completed and cancelled.", "Jobs with status Waiting Approval.", "Work orders completed today in New York time.", "Recommendations not yet due by date or known mileage."];
   return <>{labels.map((label, i) => <DashboardCard key={label} label={label} value={values[i]} detail={values[i] === undefined ? "Shop totals temporarily unavailable." : details[i]} />)}</>;
 }

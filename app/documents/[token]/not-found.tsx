@@ -1,0 +1,1 @@
+export default function UnavailableDocument(){return <main className="mx-auto max-w-lg space-y-4 p-8"><h1 className="text-2xl font-bold">Document Link Unavailable</h1><p>This private link is invalid, expired, or revoked. Contact the shop for a current document.</p></main>;}

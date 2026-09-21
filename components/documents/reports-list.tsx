@@ -1,0 +1,16 @@
+import Link from "next/link";
+import { requireShopContext } from "@/lib/auth/session";
+import { workshopDb } from "@/lib/workshop/data";
+import { PageHeader } from "@/components/page-header";
+import { panel,secondaryLink } from "@/components/workshop/record-ui";
+import { documentSchema } from "@/lib/documents/validation";
+import { formatTime } from "@/lib/jobs/time";
+export default async function ReportsPage({searchParams}:{searchParams:Promise<{q?:string;status?:string;page?:string}>}){
+ const c=await requireShopContext(); const query=await searchParams; const q=(query.q||"").slice(0,100).replace(/[,%.()]/g," ").trim();const page=Math.max(1,Math.min(10000,Number.parseInt(query.page||"1")||1)); const status=["draft","final","void"].includes(query.status||"")?query.status!:"";
+ let request=(await workshopDb()).from("repair_reports").select("id,report_number,report_status,report_snapshot,generated_at,finalized_at",{count:"exact"}).eq("shop_id",c.shop.id).order("created_at",{ascending:false});
+ if(status)request=request.eq("report_status",status);if(q)request=request.or(`report_number.ilike.%${q}%,report_snapshot->context->>customer.ilike.%${q}%,report_snapshot->context->>vin.ilike.%${q}%,report_snapshot->context->>work_order.ilike.%${q}%`);
+ const {data,error,count}=await request.range((page-1)*25,page*25-1);if(error)throw new Error("Reports temporarily unavailable.");
+ const href=(n:number)=>`/reports?${new URLSearchParams({q,status,page:String(n)})}`;
+ return <div className="space-y-6"><PageHeader eyebrow={c.shop.name} title="Repair Reports" description="Generate and review final customer reports from completed work orders."/><form className="flex flex-wrap gap-3"><label className="flex-1">Search<input name="q" defaultValue={q} placeholder="Report, customer, VIN, or work order" className="mt-2 min-h-12 w-full rounded-xl border bg-white p-3"/></label><label>Status<select name="status" defaultValue={status} className="mt-2 block min-h-12 rounded-xl border bg-white p-3"><option value="">All statuses</option>{["draft","final","void"].map(s=><option key={s}>{s}</option>)}</select></label><button className={`${secondaryLink} self-end min-h-12`}>Search</button></form>
+ <div className="space-y-4">{data.map(r=>{const parsed=documentSchema.safeParse(r.report_snapshot);const d=parsed.success?parsed.data.context:null;return <article key={r.id} className={panel}><Link className="text-lg font-bold text-red-700" href={`/reports/${r.id}`}>{r.report_number}</Link><p className="mt-2 capitalize">{r.report_status}</p><p className="mt-2 text-sm">{d?.customer} · {d?.vehicle} · {d?.work_order}</p><p className="mt-2 text-xs text-slate-500">{r.finalized_at?`Final: ${formatTime(r.finalized_at)}`:r.generated_at?`Generated: ${formatTime(r.generated_at)}`:"Not yet generated"}</p></article>;})}{!data.length?<p className={panel}>No matching reports. Open a completed work order to generate one.</p>:null}</div><div className="flex flex-wrap items-center gap-4"><span>{count} reports · Page {page}</span>{page>1?<Link className={secondaryLink} href={href(page-1)}>Previous</Link>:null}{page*25<(count||0)?<Link className={secondaryLink} href={href(page+1)}>Next</Link>:null}</div></div>;
+}

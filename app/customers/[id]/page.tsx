@@ -1,3 +1,4 @@
+import { DocumentHistory } from "@/components/documents/shop-documents";
 import { RelatedJobs } from "@/components/jobs/job-ui";
 import Link from "next/link";
 import { ClinicalHistory } from "@/components/jobs/clinical-history";
@@ -21,5 +22,5 @@ export default async function CustomerPage({ params, searchParams }: { params: P
       <section className={panel}><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Linked vehicles</h2>{canEdit ? <Link className={primaryLink} href={`/vehicles/new?customerId=${customer.id}`}>Add Vehicle</Link> : null}</div>
         {vehicles.length ? <ul className="divide-y divide-slate-100">{vehicles.map((vehicle) => <li key={vehicle.id} className="py-4"><Link href={`/vehicles/${vehicle.id}`} className="font-bold text-red-700 hover:underline">{vehicleTitle(vehicle)}</Link><p className="mt-1 text-sm text-slate-500">VIN: {vehicle.vin || "Not provided"} · {vehicle.mileage?.toLocaleString("en-US") ?? "—"} miles</p></li>)}</ul> : <EmptyState title="No linked vehicles" description="Add a vehicle to keep its details with this customer." />}
         <Pagination base={`/customers/${customer.id}`} q="" page={page} count={count ?? 0} />
-      </section><div className="xl:col-span-2"><RelatedJobs shopId={context.shop.id} customerId={customer.id} /></div><div className="xl:col-span-2"><ClinicalHistory shopId={context.shop.id} customerId={customer.id} /><div className="mt-6"><RepairHistory shopId={context.shop.id} customerId={customer.id} /></div></div></div></>;
+      </section><div className="xl:col-span-2"><RelatedJobs shopId={context.shop.id} customerId={customer.id} /></div><div className="xl:col-span-2"><ClinicalHistory shopId={context.shop.id} customerId={customer.id} /><div className="mt-6"><RepairHistory shopId={context.shop.id} customerId={customer.id} /><div className="mt-6"><DocumentHistory shopId={context.shop.id} customerId={customer.id} manage={canManageRecords(context.role)} /></div></div></div></div></>;
 }

@@ -1,3 +1,4 @@
+import { JobDocuments } from "@/components/documents/shop-documents";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Details, panel, secondaryLink, vehicleTitle } from "@/components/workshop/record-ui";
@@ -30,5 +31,6 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
       <section className={`${panel} lg:col-span-2`}><h2 className="mb-4 text-lg font-bold">Job</h2>{appointment ? <Link className="mb-4 inline-block font-bold text-red-700" href={`/appointments/${appointment.id}`}>Appointment: {formatTime(appointment.scheduledStart)}</Link> : <p className="mb-4 text-sm text-slate-500">Walk-in job · no linked appointment</p>}<Details entries={[["Customer complaint", order.customerComplaint], ["Technician notes", order.technicianNotes], ["Assigned technician", order.assignedTechnicianId ? `Technician ${order.assignedTechnicianId.slice(0, 8)}` : "Unassigned"], ["Completed", order.completedAt ? formatTime(order.completedAt) : null]]} /></section>
       <div className="lg:col-span-2"><ClinicalHistory shopId={context.shop.id} workOrderId={order.id} vehicleId={vehicle.id} /></div>
       <div className="lg:col-span-2"><RepairWorkspace shopId={context.shop.id} job={order} manage={canManageRecords(context.role)} memberId={context.membership.id} /></div>
+      <div className="lg:col-span-2"><JobDocuments shopId={context.shop.id} jobId={order.id} completed={order.status === "completed"} manage={canManageRecords(context.role)} /></div>
     </div></>;
 }
