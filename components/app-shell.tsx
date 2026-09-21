@@ -12,7 +12,7 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname.startsWith("/approve/")) {
     return children;
   }
 

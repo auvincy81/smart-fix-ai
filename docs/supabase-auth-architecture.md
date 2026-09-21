@@ -1,6 +1,6 @@
 # Supabase authentication architecture
 
-Phases 4 through 6 use the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
+Phases 4 through 7 use the dedicated local MekaReports Supabase stack. No remote project is linked or changed.
 
 ## Identity and shop authorization
 
@@ -32,3 +32,9 @@ MekaReports is not connected to Mapou Academy or VannPro.
 All four shop roles may record diagnoses and perform inspections. Phase 5 technician restrictions on customer/vehicle/job administration remain in force. Inspection creation and completion use atomic membership-checked RPCs; direct item updates can change findings only. Server-side database triggers calculate readiness from the saved checklist weights and reject edits to completed findings or checklist definitions. Clients cannot submit authoritative scores, context, or completion timestamps.
 
 The private `inspection-photos` bucket uses shop/inspection/UUID paths and parent-scoped RLS. The application decodes actual JPEG/PNG/WebP bytes, limits size/pixels, strips metadata, and re-encodes JPEG before upload through the authenticated user's client. Display uses 15-minute signed URLs. No service-role key is required. Delete permission is limited to the caller's unregistered objects for failed-upload cleanup; no destructive clinical workflow is exposed.
+
+## Estimate authorization and repairs
+
+Phase 7 adds shop-scoped read RLS and narrow mutation RPCs for recommendations, services, parts, estimate snapshots, approval requests, and immutable authorization audits. Owners/managers/service advisors manage estimates; technicians can perform authorized repairs without estimate-management permissions. Internal part cost and token hashes have no ordinary authenticated SELECT grant. Estimate and recommendation shop routes participate in session refresh and still verify identity with `getUser()`.
+
+The public approval page/API intentionally skip shop-session middleware and use a cookie-free publishable-key client. A database-generated 256-bit token authorizes only its frozen estimate; PostgreSQL stores its SHA-256 hash, verifies expiry/current version, and serializes decisions under locks. Anonymous users cannot read the underlying tables. An explicit customer projection excludes internal notes/costs and database IDs. Completed repairs and presented snapshots are protected from client edits, while nullable deleted-staff references can clear without destroying history. See [Phase 7 implementation and verification](phase-7-workflow.md).

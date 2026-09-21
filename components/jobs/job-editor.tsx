@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { requireShopContext } from "@/lib/auth/session";
 import { canManageRecords } from "@/lib/workshop/permissions";
-import { getCustomer, getVehicle } from "@/lib/workshop/data";
+import { getCustomer, getVehicle, workshopDb } from "@/lib/workshop/data";
 import { appointmentWorkOrder, getAppointment, getWorkOrder, jobOptions } from "@/lib/jobs/data";
 import { appointmentTransitions, workOrderTransitions } from "@/lib/jobs/status";
 import { localDateTime } from "@/lib/jobs/time";
@@ -24,8 +24,12 @@ export async function JobEditor({ kind, id, prefill = {} }: { kind: "appointment
     statuses = [record.status, ...(linked ? [] : appointmentTransitions[record.status])];
   } else if (id) {
     const record = await getWorkOrder(context.shop.id, id);
+    if (["completed", "cancelled"].includes(record.status)) redirect(`${base}/${id}`);
     initial = { ...initial, ...record };
-    statuses = [record.status, ...workOrderTransitions[record.status]];
+    const db = await workshopDb();
+    const [repairs, estimates] = await Promise.all([db.from("work_order_services").select("id", { count: "exact", head: true }).eq("work_order_id", id), db.from("work_order_estimates").select("id", { count: "exact", head: true }).eq("work_order_id", id)]);
+    if (repairs.error || estimates.error) throw new Error("Repair workflow temporarily unavailable.");
+    statuses = [record.status, ...((repairs.count || estimates.count) ? [] : workOrderTransitions[record.status])];
   } else if (!appt && prefill.appointmentId) {
     const record = await getAppointment(context.shop.id, prefill.appointmentId);
     const existing = await appointmentWorkOrder(context.shop.id, record.id);

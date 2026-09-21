@@ -80,6 +80,121 @@ export type Database = {
           },
         ]
       }
+      customer_approval_audits: {
+        Row: {
+          acknowledgment: string
+          approval_request_id: string
+          approved_item_ids: string[]
+          customer_name: string
+          customer_note: string | null
+          decisions: Json
+          declined_item_ids: string[]
+          estimate_id: string
+          id: string
+          method: string
+          recorded_by: string | null
+          responded_at: string
+          shop_id: string
+          work_order_id: string
+        }
+        Insert: {
+          acknowledgment: string
+          approval_request_id: string
+          approved_item_ids: string[]
+          customer_name: string
+          customer_note?: string | null
+          decisions: Json
+          declined_item_ids: string[]
+          estimate_id: string
+          id?: string
+          method: string
+          recorded_by?: string | null
+          responded_at?: string
+          shop_id: string
+          work_order_id: string
+        }
+        Update: {
+          acknowledgment?: string
+          approval_request_id?: string
+          approved_item_ids?: string[]
+          customer_name?: string
+          customer_note?: string | null
+          decisions?: Json
+          declined_item_ids?: string[]
+          estimate_id?: string
+          id?: string
+          method?: string
+          recorded_by?: string | null
+          responded_at?: string
+          shop_id?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_approval_audits_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "shop_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_approval_audits_shop_id_work_order_id_estimate_id_fkey"
+            columns: [
+              "shop_id",
+              "work_order_id",
+              "estimate_id",
+              "approval_request_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "customer_approval_requests"
+            referencedColumns: ["shop_id", "work_order_id", "estimate_id", "id"]
+          },
+        ]
+      }
+      customer_approval_requests: {
+        Row: {
+          created_at: string
+          estimate_id: string
+          expires_at: string
+          id: string
+          responded_at: string | null
+          shop_id: string
+          status: string
+          token_hash: string | null
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimate_id: string
+          expires_at: string
+          id?: string
+          responded_at?: string | null
+          shop_id: string
+          status?: string
+          token_hash?: string | null
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          estimate_id?: string
+          expires_at?: string
+          id?: string
+          responded_at?: string | null
+          shop_id?: string
+          status?: string
+          token_hash?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_approval_requests_shop_id_work_order_id_estimate__fkey"
+            columns: ["shop_id", "work_order_id", "estimate_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_estimates"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+        ]
+      }
       customer_questions: {
         Row: {
           appointment_id: string | null
@@ -632,11 +747,15 @@ export type Database = {
           created_at: string
           customer_id: string
           description: string | null
+          diagnosis_id: string | null
           estimated_cost: number | null
           id: string
+          inspection_id: string | null
+          inspection_item_id: string | null
           priority: string | null
           recommended_date: string | null
           recommended_mileage: number | null
+          request_key: string | null
           shop_id: string
           status: string
           title: string
@@ -648,11 +767,15 @@ export type Database = {
           created_at?: string
           customer_id: string
           description?: string | null
+          diagnosis_id?: string | null
           estimated_cost?: number | null
           id?: string
+          inspection_id?: string | null
+          inspection_item_id?: string | null
           priority?: string | null
           recommended_date?: string | null
           recommended_mileage?: number | null
+          request_key?: string | null
           shop_id: string
           status?: string
           title: string
@@ -664,11 +787,15 @@ export type Database = {
           created_at?: string
           customer_id?: string
           description?: string | null
+          diagnosis_id?: string | null
           estimated_cost?: number | null
           id?: string
+          inspection_id?: string | null
+          inspection_item_id?: string | null
           priority?: string | null
           recommended_date?: string | null
           recommended_mileage?: number | null
+          request_key?: string | null
           shop_id?: string
           status?: string
           title?: string
@@ -677,6 +804,55 @@ export type Database = {
           work_order_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "recommendations_diagnosis_context"
+            columns: ["shop_id", "work_order_id", "diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnoses"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_diagnosis_context"
+            columns: ["shop_id", "work_order_id", "diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_listing"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_inspection_context"
+            columns: ["shop_id", "work_order_id", "inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_listing"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_inspection_context"
+            columns: ["shop_id", "work_order_id", "inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_item_context"
+            columns: ["inspection_id", "inspection_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_items"
+            referencedColumns: ["inspection_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_job_context"
+            columns: ["shop_id", "customer_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "recommendations_job_context"
+            columns: ["shop_id", "customer_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "customer_id", "vehicle_id", "id"]
+          },
           {
             foreignKeyName: "service_recommendations_customer_fk"
             columns: ["shop_id", "customer_id"]
@@ -857,50 +1033,335 @@ export type Database = {
           },
         ]
       }
-      work_order_services: {
+      work_order_estimate_items: {
+        Row: {
+          category: string | null
+          decision: string
+          decision_at: string | null
+          description: string
+          estimate_id: string
+          fees_amount: number
+          id: string
+          labor_amount: number
+          labor_hours: number
+          labor_rate: number
+          line_number: number
+          parts_amount: number
+          parts_snapshot: Json
+          shop_id: string
+          total_amount: number
+          work_order_id: string
+          work_order_service_id: string
+        }
+        Insert: {
+          category?: string | null
+          decision?: string
+          decision_at?: string | null
+          description: string
+          estimate_id: string
+          fees_amount: number
+          id?: string
+          labor_amount: number
+          labor_hours: number
+          labor_rate: number
+          line_number: number
+          parts_amount: number
+          parts_snapshot?: Json
+          shop_id: string
+          total_amount: number
+          work_order_id: string
+          work_order_service_id: string
+        }
+        Update: {
+          category?: string | null
+          decision?: string
+          decision_at?: string | null
+          description?: string
+          estimate_id?: string
+          fees_amount?: number
+          id?: string
+          labor_amount?: number
+          labor_hours?: number
+          labor_rate?: number
+          line_number?: number
+          parts_amount?: number
+          parts_snapshot?: Json
+          shop_id?: string
+          total_amount?: number
+          work_order_id?: string
+          work_order_service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_estimate_items_shop_id_work_order_id_estimate_i_fkey"
+            columns: ["shop_id", "work_order_id", "estimate_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_estimates"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+          {
+            foreignKeyName: "work_order_estimate_items_shop_id_work_order_id_work_order_fkey"
+            columns: ["shop_id", "work_order_id", "work_order_service_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_services"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+        ]
+      }
+      work_order_estimates: {
         Row: {
           created_at: string
-          description: string
+          created_by: string | null
+          customer_note: string | null
+          customer_snapshot: Json
+          estimate_number: string
+          fees_total: number
+          grand_total: number
           id: string
-          labor_amount: number | null
-          labor_hours: number | null
-          labor_rate: number | null
-          service_category: string | null
+          internal_note: string | null
+          is_current: boolean
+          labor_total: number
+          parts_total: number
+          presented_at: string | null
+          responded_at: string | null
           shop_id: string
           status: string
-          technician_id: string | null
+          subtotal: number
+          superseded_at: string | null
+          tax_amount: number
           updated_at: string
+          version: number
           work_order_id: string
         }
         Insert: {
           created_at?: string
-          description: string
+          created_by?: string | null
+          customer_note?: string | null
+          customer_snapshot?: Json
+          estimate_number: string
+          fees_total?: number
+          grand_total?: number
           id?: string
-          labor_amount?: number | null
-          labor_hours?: number | null
-          labor_rate?: number | null
-          service_category?: string | null
+          internal_note?: string | null
+          is_current?: boolean
+          labor_total?: number
+          parts_total?: number
+          presented_at?: string | null
+          responded_at?: string | null
           shop_id: string
           status?: string
-          technician_id?: string | null
+          subtotal?: number
+          superseded_at?: string | null
+          tax_amount?: number
           updated_at?: string
+          version: number
           work_order_id: string
         }
         Update: {
           created_at?: string
-          description?: string
+          created_by?: string | null
+          customer_note?: string | null
+          customer_snapshot?: Json
+          estimate_number?: string
+          fees_total?: number
+          grand_total?: number
+          id?: string
+          internal_note?: string | null
+          is_current?: boolean
+          labor_total?: number
+          parts_total?: number
+          presented_at?: string | null
+          responded_at?: string | null
+          shop_id?: string
+          status?: string
+          subtotal?: number
+          superseded_at?: string | null
+          tax_amount?: number
+          updated_at?: string
+          version?: number
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_estimates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "shop_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_estimates_shop_id_work_order_id_fkey"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_order_estimates_shop_id_work_order_id_fkey"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      work_order_parts: {
+        Row: {
+          amount: number | null
+          created_at: string
+          description: string | null
+          id: string
+          part_name: string
+          part_number: string | null
+          quantity: number
+          request_key: string
+          shop_id: string
+          status: string
+          unit_cost: number | null
+          unit_price: number
+          updated_at: string
+          work_order_id: string
+          work_order_service_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          part_name: string
+          part_number?: string | null
+          quantity: number
+          request_key: string
+          shop_id: string
+          status?: string
+          unit_cost?: number | null
+          unit_price: number
+          updated_at?: string
+          work_order_id: string
+          work_order_service_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          part_name?: string
+          part_number?: string | null
+          quantity?: number
+          request_key?: string
+          shop_id?: string
+          status?: string
+          unit_cost?: number | null
+          unit_price?: number
+          updated_at?: string
+          work_order_id?: string
+          work_order_service_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_parts_shop_id_work_order_id_fkey"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_order_parts_shop_id_work_order_id_fkey"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "work_order_parts_shop_id_work_order_id_work_order_service__fkey"
+            columns: ["shop_id", "work_order_id", "work_order_service_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_services"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
+        ]
+      }
+      work_order_services: {
+        Row: {
+          completed_at: string | null
+          completion_note: string | null
+          created_at: string
+          customer_description: string | null
+          description: string
+          fees_amount: number
+          id: string
+          labor_amount: number | null
+          labor_hours: number | null
+          labor_rate: number | null
+          parts_amount: number
+          recommendation_id: string | null
+          request_key: string | null
+          service_category: string | null
+          shop_id: string
+          sort_order: number
+          started_at: string | null
+          status: string
+          technician_id: string | null
+          total_amount: number
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_note?: string | null
+          created_at?: string
+          customer_description?: string | null
+          description: string
+          fees_amount?: number
           id?: string
           labor_amount?: number | null
           labor_hours?: number | null
           labor_rate?: number | null
+          parts_amount?: number
+          recommendation_id?: string | null
+          request_key?: string | null
           service_category?: string | null
-          shop_id?: string
+          shop_id: string
+          sort_order?: number
+          started_at?: string | null
           status?: string
           technician_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_note?: string | null
+          created_at?: string
+          customer_description?: string | null
+          description?: string
+          fees_amount?: number
+          id?: string
+          labor_amount?: number | null
+          labor_hours?: number | null
+          labor_rate?: number | null
+          parts_amount?: number
+          recommendation_id?: string | null
+          request_key?: string | null
+          service_category?: string | null
+          shop_id?: string
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          technician_id?: string | null
+          total_amount?: number
           updated_at?: string
           work_order_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "services_recommendation_context"
+            columns: ["shop_id", "work_order_id", "recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "service_recommendations"
+            referencedColumns: ["shop_id", "work_order_id", "id"]
+          },
           {
             foreignKeyName: "work_order_services_shop_id_fkey"
             columns: ["shop_id"]
@@ -1371,6 +1832,22 @@ export type Database = {
           label: string
         }[]
       }
+      manage_repair: {
+        Args: { p_action: string; p_data: Json; p_job: string }
+        Returns: Json
+      }
+      read_customer_approval: { Args: { p_token: string }; Returns: Json }
+      record_staff_approval: {
+        Args: {
+          p_ack: boolean
+          p_decisions: Json
+          p_estimate: string
+          p_method: string
+          p_name: string
+          p_note: string
+        }
+        Returns: boolean
+      }
       save_inspection: {
         Args: {
           p_acknowledge_unchecked: boolean
@@ -1381,6 +1858,16 @@ export type Database = {
           p_updated_at: string
         }
         Returns: string
+      }
+      submit_customer_approval: {
+        Args: {
+          p_ack: boolean
+          p_decisions: Json
+          p_name: string
+          p_note: string
+          p_token: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

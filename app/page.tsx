@@ -4,8 +4,6 @@ import { PageHeader } from "@/components/page-header";
 import { DashboardSnapshot } from "@/components/jobs/dashboard-snapshot";
 
 const cards = [
-  ["Completed Today", "Completed services will be summarized here."],
-  ["Upcoming Services", "Future service recommendations will appear here."],
   ["Customer Questions", "New customer concerns will be surfaced here."],
 ] as const;
 
