@@ -225,6 +225,7 @@ export type Database = {
           created_at: string
           diagnostic_codes: string | null
           id: string
+          save_key: string | null
           severity: string | null
           shop_id: string
           symptoms: string | null
@@ -241,6 +242,7 @@ export type Database = {
           created_at?: string
           diagnostic_codes?: string | null
           id?: string
+          save_key?: string | null
           severity?: string | null
           shop_id: string
           symptoms?: string | null
@@ -257,6 +259,7 @@ export type Database = {
           created_at?: string
           diagnostic_codes?: string | null
           id?: string
+          save_key?: string | null
           severity?: string | null
           shop_id?: string
           symptoms?: string | null
@@ -267,6 +270,20 @@ export type Database = {
           work_order_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "diagnoses_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
           {
             foreignKeyName: "diagnoses_shop_id_fkey"
             columns: ["shop_id"]
@@ -309,39 +326,55 @@ export type Database = {
           category: string
           condition: string
           created_at: string
+          critical: boolean
           id: string
           inspection_id: string
           item_name: string
           measurement: string | null
           recommendation: string | null
+          required: boolean
           sort_order: number
           technician_note: string | null
+          weight: number
         }
         Insert: {
           category: string
           condition?: string
           created_at?: string
+          critical?: boolean
           id?: string
           inspection_id: string
           item_name: string
           measurement?: string | null
           recommendation?: string | null
+          required?: boolean
           sort_order?: number
           technician_note?: string | null
+          weight?: number
         }
         Update: {
           category?: string
           condition?: string
           created_at?: string
+          critical?: boolean
           id?: string
           inspection_id?: string
           item_name?: string
           measurement?: string | null
           recommendation?: string | null
+          required?: boolean
           sort_order?: number
           technician_note?: string | null
+          weight?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "inspection_items_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_listing"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inspection_items_inspection_id_fkey"
             columns: ["inspection_id"]
@@ -351,44 +384,137 @@ export type Database = {
           },
         ]
       }
+      inspection_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          inspection_id: string
+          inspection_item_id: string | null
+          shop_id: string
+          storage_path: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id: string
+          inspection_item_id?: string | null
+          shop_id: string
+          storage_path: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_id?: string
+          inspection_item_id?: string | null
+          shop_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_photos_inspection_id_inspection_item_id_fkey"
+            columns: ["inspection_id", "inspection_item_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_items"
+            referencedColumns: ["inspection_id", "id"]
+          },
+          {
+            foreignKeyName: "inspection_photos_shop_id_inspection_id_fkey"
+            columns: ["shop_id", "inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "inspection_photos_shop_id_inspection_id_fkey"
+            columns: ["shop_id", "inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
       inspections: {
         Row: {
           completed_at: string | null
           created_at: string
+          criteria_version: string | null
           id: string
           inspection_type: string | null
+          jurisdiction_state: string | null
+          readiness_blockers: Json
+          readiness_result: string | null
+          readiness_score: number | null
+          request_key: string | null
           shop_id: string
           status: string
           summary: string | null
           technician_id: string | null
+          template_key: string | null
+          updated_at: string
           vehicle_id: string
           work_order_id: string
         }
         Insert: {
           completed_at?: string | null
           created_at?: string
+          criteria_version?: string | null
           id?: string
           inspection_type?: string | null
+          jurisdiction_state?: string | null
+          readiness_blockers?: Json
+          readiness_result?: string | null
+          readiness_score?: number | null
+          request_key?: string | null
           shop_id: string
           status?: string
           summary?: string | null
           technician_id?: string | null
+          template_key?: string | null
+          updated_at?: string
           vehicle_id: string
           work_order_id: string
         }
         Update: {
           completed_at?: string | null
           created_at?: string
+          criteria_version?: string | null
           id?: string
           inspection_type?: string | null
+          jurisdiction_state?: string | null
+          readiness_blockers?: Json
+          readiness_result?: string | null
+          readiness_score?: number | null
+          request_key?: string | null
           shop_id?: string
           status?: string
           summary?: string | null
           technician_id?: string | null
+          template_key?: string | null
+          updated_at?: string
           vehicle_id?: string
           work_order_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "inspections_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
           {
             foreignKeyName: "inspections_shop_id_fkey"
             columns: ["shop_id"]
@@ -976,6 +1102,156 @@ export type Database = {
           },
         ]
       }
+      diagnosis_listing: {
+        Row: {
+          ai_response: Json | null
+          ai_summary: string | null
+          confirmed_cause: string | null
+          created_at: string | null
+          customer_id: string | null
+          diagnostic_codes: string | null
+          id: string | null
+          save_key: string | null
+          severity: string | null
+          shop_id: string | null
+          symptoms: string | null
+          technician_findings: string | null
+          technician_id: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+          work_order_id: string | null
+          work_order_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnoses_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnoses_technician_fk"
+            columns: ["shop_id", "technician_id"]
+            isOneToOne: false
+            referencedRelation: "shop_members"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_vehicle_fk"
+            columns: ["shop_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "diagnoses_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      inspection_listing: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          criteria_version: string | null
+          customer_id: string | null
+          customer_name: string | null
+          id: string | null
+          inspection_type: string | null
+          jurisdiction_state: string | null
+          readiness_blockers: Json | null
+          readiness_result: string | null
+          readiness_score: number | null
+          request_key: string | null
+          shop_id: string | null
+          status: string | null
+          summary: string | null
+          technician_id: string | null
+          template_key: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+          vehicle_name: string | null
+          vin: string | null
+          work_order_id: string | null
+          work_order_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspections_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_job_vehicle_fk"
+            columns: ["shop_id", "vehicle_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "vehicle_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_technician_fk"
+            columns: ["shop_id", "technician_id"]
+            isOneToOne: false
+            referencedRelation: "shop_members"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_vehicle_fk"
+            columns: ["shop_id", "vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_listing"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "inspections_work_order_fk"
+            columns: ["shop_id", "work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
       work_order_listing: {
         Row: {
           appointment_id: string | null
@@ -1078,12 +1354,33 @@ export type Database = {
         }
         Returns: string
       }
+      create_inspection: {
+        Args: {
+          p_request_key: string
+          p_state: string
+          p_technician: string
+          p_type: string
+          p_work_order: string
+        }
+        Returns: string
+      }
       list_shop_technicians: {
         Args: { p_shop_id: string }
         Returns: {
           id: string
           label: string
         }[]
+      }
+      save_inspection: {
+        Args: {
+          p_acknowledge_unchecked: boolean
+          p_complete: boolean
+          p_id: string
+          p_items: Json
+          p_summary: string
+          p_updated_at: string
+        }
+        Returns: string
       }
     }
     Enums: {

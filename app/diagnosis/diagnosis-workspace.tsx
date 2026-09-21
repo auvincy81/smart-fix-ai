@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { saveDiagnosis } from "@/lib/diagnoses/actions";
 
 type Severity = "stop_driving" | "drive_to_shop" | "monitor";
 
@@ -108,6 +109,10 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [error, setError] = useState("");
+  const [savedId, setSavedId] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saving, startSaving] = useTransition();
+  const [resultInput, setResultInput] = useState<{ symptoms: string; codes: string; saveKey: string } | null>(null);
 
   const severity = result?.severity ?? null;
   const score = useMemo(() => severityScore(severity), [severity]);
@@ -116,6 +121,9 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
     setLoading(true);
     setError("");
     setResult(null);
+    setSavedId("");
+    setSaveMessage("");
+    setResultInput(null);
 
     try {
       const dashboardData = dashboardPhoto ? await fileToBase64(dashboardPhoto) : null;
@@ -142,6 +150,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
       const data = (await response.json()) as DiagnosisResult;
       if (!response.ok) throw new Error(data.error || "Diagnosis request failed.");
       setResult(data);
+      setResultInput({ symptoms, codes, saveKey: crypto.randomUUID() });
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : "Unable to run diagnosis.");
     } finally {
@@ -159,7 +168,8 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
 
   return (
     <>
-      {initial ? <p className="mb-5 rounded-xl border border-slate-200 bg-white p-4 text-sm"><Link className="font-bold text-red-700" href={`/work-orders/${initial.workOrderId}`}>← {initial.workOrderNumber}</Link> · Vehicle context loaded. Results are not saved to the work order yet.</p> : null}
+      {initial ? <p className="mb-5 rounded-xl border border-slate-200 bg-white p-4 text-sm"><Link className="font-bold text-red-700" href={`/work-orders/${initial.workOrderId}`}>← {initial.workOrderNumber}</Link> · Vehicle context loaded. Run a diagnostic, then choose Save Diagnosis to keep the result with this job.</p> : null}
+      {initial && result && resultInput ? <section className="mb-5 space-y-3 rounded-xl border border-slate-200 bg-white p-4"><button disabled={saving || !!savedId} className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50" onClick={() => startSaving(async () => { const saved = await saveDiagnosis({ workOrderId: initial.workOrderId, ...resultInput, response: result }); setSaveMessage(saved.message ?? ""); if (saved.id) setSavedId(saved.id); })}>{saving ? "Saving…" : savedId ? "Diagnosis Saved" : "Save Diagnosis to Work Order"}</button>{saveMessage ? <p role="status" className="text-sm">{saveMessage}</p> : null}{savedId ? <div className="flex flex-wrap gap-4 text-sm font-bold text-red-700"><Link href={`/diagnoses/${savedId}`}>Open Saved Diagnosis</Link><Link href={`/work-orders/${initial.workOrderId}`}>Back to Work Order</Link></div> : null}</section> : null}
       <PageHeader
         eyebrow="MekaReports AI Diagnosis"
         title="AI-assisted vehicle diagnosis"
@@ -250,7 +260,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
             <button
               type="button"
               onClick={runDiagnosis}
-              disabled={loading}
+              disabled={loading || saving}
               className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-red-600 px-5 py-3.5 font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Running MekaReports Scan..." : "Run Full Diagnostic"}

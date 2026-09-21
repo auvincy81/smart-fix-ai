@@ -34,3 +34,16 @@ textarea,
 select {
   -webkit-tap-highlight-color: transparent;
 }
+
+@media print {
+  @page { margin: 14mm; }
+  body:has(.inspection-print) aside,
+  body:has(.inspection-print) header,
+  body:has(.inspection-print) .no-print { display: none !important; }
+  body:has(.inspection-print), body:has(.inspection-print) .min-h-screen { background: white; }
+  .inspection-print { color: black; font-size: 11pt; }
+  .inspection-print section { box-shadow: none; }
+  .inspection-result-item { break-inside: avoid; }
+  .inspection-print h2, .inspection-print h3 { break-after: avoid; }
+  .inspection-print a { color: inherit; text-decoration: none; }
+}

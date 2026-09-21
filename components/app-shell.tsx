@@ -20,7 +20,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <AppSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      <div className="lg:pl-72">
+      <div className="lg:pl-72 print:pl-0">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { Details, panel, primaryLink, secondaryLink, vehicleTitle } from "@/components/workshop/record-ui";
+import { Details, panel, secondaryLink, vehicleTitle } from "@/components/workshop/record-ui";
+import { ClinicalHistory } from "@/components/jobs/clinical-history";
 import { StatusBadge } from "@/components/jobs/job-ui";
 import { StatusAction } from "@/components/jobs/status-actions";
 import { requireShopContext } from "@/lib/auth/session";
@@ -22,8 +23,7 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
     <div className="grid gap-6 lg:grid-cols-2"><section className={panel}><h2 className="mb-3 text-lg font-bold">Customer</h2><Link className="mb-4 inline-block font-bold text-red-700" href={`/customers/${customer.id}`}>{customer.firstName} {customer.lastName}</Link><Details entries={[["Phone", customer.phone], ["Email", customer.email]]} /></section>
       <section className={panel}><h2 className="mb-3 text-lg font-bold">Vehicle</h2><Link className="mb-4 inline-block font-bold text-red-700" href={`/vehicles/${vehicle.id}`}>{vehicleTitle(vehicle)}</Link><Details entries={[["VIN", vehicle.vin], ["Mileage in", order.mileageIn], ["Mileage out", order.mileageOut]]} /></section>
       <section className={`${panel} lg:col-span-2`}><h2 className="mb-4 text-lg font-bold">Job</h2>{appointment ? <Link className="mb-4 inline-block font-bold text-red-700" href={`/appointments/${appointment.id}`}>Appointment: {formatTime(appointment.scheduledStart)}</Link> : <p className="mb-4 text-sm text-slate-500">Walk-in job · no linked appointment</p>}<Details entries={[["Customer complaint", order.customerComplaint], ["Technician notes", order.technicianNotes], ["Assigned technician", order.assignedTechnicianId ? `Technician ${order.assignedTechnicianId.slice(0, 8)}` : "Unassigned"], ["Completed", order.completedAt ? formatTime(order.completedAt) : null]]} /></section>
-      <section className={panel}><h2 className="mb-3 text-lg font-bold">Diagnosis</h2><p className="mb-4 text-sm text-slate-500">Launch AI Diagnosis with the vehicle and complaint. Saving diagnosis results to this job will follow in Phase 6.</p><Link className={primaryLink} href={`/diagnosis?workOrderId=${order.id}&vehicleId=${vehicle.id}`}>Start AI Diagnosis</Link></section>
-      <section className={panel}><h2 className="mb-3 text-lg font-bold">Inspection</h2><button disabled className={`${secondaryLink} cursor-not-allowed opacity-50`}>Start Inspection</button><p className="mt-3 text-sm text-slate-500">Job inspections become available in Phase 6.</p></section>
-      <section className={`${panel} lg:col-span-2`}><h2 className="mb-3 text-lg font-bold">Services</h2><p className="text-sm text-slate-500">Service and labor entries will be connected in Phase 6/7. No services have been recorded here.</p></section>
+      <div className="lg:col-span-2"><ClinicalHistory shopId={context.shop.id} workOrderId={order.id} vehicleId={vehicle.id} /></div>
+      <section className={`${panel} lg:col-span-2`}><h2 className="mb-3 text-lg font-bold">Services</h2><p className="text-sm text-slate-500">Service and labor entries will be connected in Phase 7. No services have been recorded here.</p></section>
     </div></>;
 }
