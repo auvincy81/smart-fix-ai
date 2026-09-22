@@ -31,6 +31,9 @@ export async function saveCustomer(id: string | null, _state: FormState, formDat
   const context = await requireShopContext();
   if (!canManageRecords(context.role)) return { message: "Your shop role allows viewing records only." };
   if (id && !recordId.safeParse(id).success) return { message: "Customer not found." };
+  const createKey = recordId.safeParse(formData.get("requestKey"));
+  const version = String(formData.get("updatedAt") || "");
+  if ((!id && !createKey.success) || (id && !version)) return { message: "Reload this form before saving." };
   const parsed = customerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors, message: "Please review the highlighted fields." };
   const db = await createServerSupabaseClient();
@@ -39,10 +42,14 @@ export async function saveCustomer(id: string | null, _state: FormState, formDat
   const values = { first_name: d.firstName, last_name: d.lastName, phone: d.phone, email: d.email,
     address: d.address, city: d.city, state: d.state, postal_code: d.postalCode, notes: d.notes };
   const query = id
-    ? db.from("customers").update(values).eq("id", id).eq("shop_id", context.shop.id)
-    : db.from("customers").insert({ ...values, shop_id: context.shop.id });
+    ? db.from("customers").update(values).eq("id", id).eq("shop_id", context.shop.id).eq("updated_at", version)
+    : db.from("customers").insert({ ...values, id: createKey.data, shop_id: context.shop.id });
   const { data, error } = await query.select("id").single();
-  if (error || !data) return { message: "We couldn't save this customer. Check your access and try again." };
+  if (!id && error?.code === "23505") {
+    const previous=await db.from("customers").select("id").eq("id",createKey.data!).eq("shop_id",context.shop.id).maybeSingle();
+    if(previous.data)redirect(`/customers/${previous.data.id}`);
+  }
+  if (error || !data) return { message: id && error?.code === "PGRST116" ? "This customer changed after you opened the form. Reload and review before saving." : "We couldn't save this customer. Check your access and try again." };
   revalidatePath("/customers", "layout");
   revalidatePath("/vehicles", "layout");
   redirect(`/customers/${data.id}`);
@@ -52,6 +59,9 @@ export async function saveVehicle(id: string | null, _state: FormState, formData
   const context = await requireShopContext();
   if (!canManageRecords(context.role)) return { message: "Your shop role allows viewing records only." };
   if (id && !recordId.safeParse(id).success) return { message: "Vehicle not found." };
+  const createKey = recordId.safeParse(formData.get("requestKey"));
+  const version = String(formData.get("updatedAt") || "");
+  if ((!id && !createKey.success) || (id && !version)) return { message: "Reload this form before saving." };
   const parsed = vehicleSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors, message: "Please review the highlighted fields." };
   const db = await createServerSupabaseClient();
@@ -63,9 +73,14 @@ export async function saveVehicle(id: string | null, _state: FormState, formData
     trim: d.trim, engine: d.engine, license_plate: d.licensePlate, plate_state: d.plateState,
     color: d.color, mileage: d.mileage, notes: d.notes };
   const query = id
-    ? db.from("vehicles").update(values).eq("id", id).eq("shop_id", context.shop.id)
-    : db.from("vehicles").insert({ ...values, shop_id: context.shop.id });
+    ? db.from("vehicles").update(values).eq("id", id).eq("shop_id", context.shop.id).eq("updated_at", version)
+    : db.from("vehicles").insert({ ...values, id: createKey.data, shop_id: context.shop.id });
   const { data, error } = await query.select("id").single();
+  if (!id && error?.code === "23505") {
+    const previous=await db.from("vehicles").select("id").eq("id",createKey.data!).eq("shop_id",context.shop.id).maybeSingle();
+    if(previous.data)redirect(`/vehicles/${previous.data.id}`);
+  }
+  if (id && error?.code === "PGRST116") return {message:"This vehicle changed after you opened the form. Reload and review before saving."};
   if (error || !data) return error?.code === "23505"
     ? { errors: { vin: ["This VIN already belongs to a vehicle in your shop."] } }
     : { message: "We couldn't save this vehicle. Check your access and try again." };

@@ -37,17 +37,17 @@ export async function getVehicle(shopId: string, id: string) {
   if (!data) notFound();
   return toVehicle(data);
 }
-export async function customerOptions(shopId: string) {
+export async function customerOptions(shopId: string, selected?: string) {
   const db = await workshopDb();
-  const options: { id: string; label: string }[] = [];
-  // Read in batches so the local API's row limit cannot silently hide customers.
-  for (let offset = 0; ; offset += 500) {
-    const { data, error } = await db.from("customers").select("id, first_name, last_name")
-      .eq("shop_id", shopId).order("last_name").order("id").range(offset, offset + 499);
-    if (error) throw new Error("Customer records are temporarily unavailable.");
-    options.push(...data.map((row) => ({ id: row.id, label: `${row.first_name} ${row.last_name}` })));
-    if (data.length < 500) return options;
+  const { data, error } = await db.from("customers").select("id, first_name, last_name")
+    .eq("shop_id", shopId).order("updated_at", { ascending: false }).order("id").limit(250);
+  if (error) throw new Error("Customer records are temporarily unavailable.");
+  if (selected && !data.some(row => row.id === selected)) {
+    const current = await db.from("customers").select("id, first_name, last_name").eq("shop_id", shopId).eq("id", selected).maybeSingle();
+    if (current.error) throw new Error("Customer records are temporarily unavailable.");
+    if (current.data) data.push(current.data);
   }
+  return data.map(row => ({ id: row.id, label: `${row.first_name} ${row.last_name}` }));
 }
 export function searchParams(query: { q?: string; page?: string }) {
   // Keep PostgREST filter syntax out of user input, and bound request size.

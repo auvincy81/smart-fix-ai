@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 import { getSupabasePublicConfig } from "./config";
+import { boundedSupabaseFetch } from "./fetch";
 
 /**
  * Creates a new cookie-aware server client for the current request. Cookie writes
@@ -19,6 +20,7 @@ export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(config.url, config.publishableKey, {
+    global: { fetch: boundedSupabaseFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll();

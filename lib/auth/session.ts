@@ -34,6 +34,7 @@ export const getCurrentShopContext = cache(async (): Promise<AuthResult<Authenti
   }
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError && (userError.status === undefined || userError.status === 0 || userError.status >= 500)) return {ok:false,code:"SHOP_CONTEXT_UNAVAILABLE",message:"Account services are temporarily unavailable. Please try again."};
   if (userError || !userData.user) {
     return { ok: false, code: "NOT_AUTHENTICATED", message: "Sign in to select a shop workspace." };
   }

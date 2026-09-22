@@ -21,15 +21,16 @@ export async function inspectionItems(id: string) {
   if (error) throw new Error("Inspection findings are temporarily unavailable.");
   return data;
 }
-export async function inspectionOptions(shopId: string, currentMember: { id: string; role: string }) {
+export async function inspectionOptions(shopId: string, currentMember: { id: string; role: string }, selected?: string) {
   const db = await workshopDb();
-  const orders: { id: string; label: string; technicianId: string | null }[] = [];
-  for (let start = 0; ; start += 500) {
-    const { data, error } = await db.from("work_order_listing").select("id, work_order_number, customer_name, vehicle_name, assigned_technician_id").eq("shop_id", shopId).order("created_at", { ascending: false }).order("id").range(start, start + 499);
-    if (error) throw new Error("Work orders are temporarily unavailable.");
-    orders.push(...data.filter((r) => r.id).map((r) => ({ id: r.id!, label: `${r.work_order_number} · ${r.customer_name} · ${r.vehicle_name || "Vehicle details pending"}`, technicianId: r.assigned_technician_id })));
-    if (data.length < 500) break;
+  const result = await db.from("work_order_listing").select("id, work_order_number, customer_name, vehicle_name, assigned_technician_id").eq("shop_id", shopId).order("created_at", { ascending: false }).order("id").limit(250);
+  if (result.error) throw new Error("Work orders are temporarily unavailable.");
+  if (selected && !result.data.some(r => r.id === selected)) {
+    const current = await db.from("work_order_listing").select("id, work_order_number, customer_name, vehicle_name, assigned_technician_id").eq("shop_id", shopId).eq("id", selected).maybeSingle();
+    if (current.error) throw new Error("Work orders are temporarily unavailable.");
+    if (current.data) result.data.push(current.data);
   }
+  const orders = result.data.filter(r => r.id).map(r => ({ id: r.id!, label: `${r.work_order_number} · ${r.customer_name} · ${r.vehicle_name || "Vehicle details pending"}`, technicianId: r.assigned_technician_id }));
   const { data, error } = await db.rpc("list_shop_technicians", { p_shop_id: shopId });
   if (error) throw new Error("Technicians are temporarily unavailable.");
   return { orders, technicians: [{ id: currentMember.id, label: `Me (${currentMember.role.replaceAll("_", " ")})` }, ...data.filter((t) => t.id !== currentMember.id)] };

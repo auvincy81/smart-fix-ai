@@ -22,11 +22,13 @@ const fields: Record<"shop" | "customer" | "vehicle", Field[]> = {
 };
 const inputClass = "mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100 disabled:bg-slate-100";
 
-export function RecordForm({ kind, initial = {}, customers = [], action, cancelHref, submitLabel }: {
-  kind: "shop" | "customer" | "vehicle"; initial?: Record<string, string | number | null>;
+export function RecordForm({ kind, initial = {}, customers = [], action, cancelHref, submitLabel, requestKey }: {
+  requestKey?: string; kind: "shop" | "customer" | "vehicle"; initial?: Record<string, string | number | null>;
   customers?: { id: string; label: string }[];
   action: (state: FormState, form: FormData) => Promise<FormState>; cancelHref: string; submitLabel: string;
 }) {
+  const [createKey] = useState(requestKey);
+  const [version] = useState(initial.updatedAt ?? "");
   const [state, formAction, pending] = useActionState(action, {});
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields[kind].map(({ name }) => [name, String(initial[name] ?? "")])));
   const [decoding, setDecoding] = useState(false);
@@ -59,9 +61,10 @@ export function RecordForm({ kind, initial = {}, customers = [], action, cancelH
 
   return (
     <form action={formAction} onReset={(event) => event.preventDefault()} className="max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+      <input type="hidden" name="requestKey" value={createKey||""}/><input type="hidden" name="updatedAt" value={version}/>
       <p className="mb-6 text-sm text-slate-500">Fields marked * are required.</p>
       {state.message ? <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-800">{state.message}</p> : null}
-      <fieldset disabled={pending || decoding} className="grid gap-5 sm:grid-cols-2">
+      {kind === "vehicle" ? <p className="mb-4 text-sm text-slate-600">Customer choices show recent records. To add a vehicle for an older customer, find their customer page and choose Add Vehicle.</p> : null}<fieldset disabled={pending || decoding} className="grid gap-5 sm:grid-cols-2">
         {fields[kind].map((field) => {
           const errors = state.errors?.[field.name];
           const props = { id: field.name, name: field.name, required: field.required, value: values[field.name],

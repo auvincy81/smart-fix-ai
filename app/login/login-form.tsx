@@ -14,6 +14,7 @@ export function LoginForm({ configured }: LoginFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(pendingAction)return;
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const action = submitter?.value === "sign-up" ? "sign-up" : "sign-in";
     setPendingAction(action);
@@ -22,33 +23,38 @@ export function LoginForm({ configured }: LoginFormProps) {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
-    if (action === "sign-up") {
-      const result = await signUpWithEmail(email, password);
-      if (!result.ok) {
-        setNotice({ tone: "error", message: result.message });
-        setPendingAction(null);
-        return;
+    try {
+      if (action === "sign-up") {
+        const result = await signUpWithEmail(email, password);
+        if (!result.ok) {
+          setNotice({ tone: "error", message: result.message });
+          setPendingAction(null);
+          return;
+        }
+
+        if (result.data.requiresEmailConfirmation) {
+          setNotice({
+            tone: "success",
+            message: "Account started. Check your email to confirm your address, then sign in to set up your shop.",
+          });
+          setPendingAction(null);
+          return;
+        }
+      } else {
+        const result = await signInWithEmail(email, password);
+        if (!result.ok) {
+          setNotice({ tone: "error", message: result.message });
+          setPendingAction(null);
+          return;
+        }
       }
 
-      if (result.data.requiresEmailConfirmation) {
-        setNotice({
-          tone: "success",
-          message: "Account started. Check your email to confirm your address, then sign in to set up your shop.",
-        });
-        setPendingAction(null);
-        return;
-      }
-    } else {
-      const result = await signInWithEmail(email, password);
-      if (!result.ok) {
-        setNotice({ tone: "error", message: result.message });
-        setPendingAction(null);
-        return;
-      }
+      router.replace("/");
+      router.refresh();
+    } catch {
+      setNotice({tone:"error",message:"Account services could not be reached. Check your connection and try again."});
+      setPendingAction(null);
     }
-
-    router.replace("/");
-    router.refresh();
   }
 
   return (

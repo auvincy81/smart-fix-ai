@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { saveDiagnosis } from "@/lib/diagnoses/actions";
@@ -106,6 +106,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
   const [context, setContext] = useState("");
   const [dashboardPhoto, setDashboardPhoto] = useState<File | null>(null);
   const [partPhoto, setPartPhoto] = useState<File | null>(null);
+  const running=useRef(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [error, setError] = useState("");
@@ -118,6 +119,8 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
   const score = useMemo(() => severityScore(severity), [severity]);
 
   async function runDiagnosis() {
+    if (running.current || saving) return;
+    running.current=true;
     setLoading(true);
     setError("");
     setResult(null);
@@ -126,6 +129,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
     setResultInput(null);
 
     try {
+      for (const photo of [dashboardPhoto,partPhoto]) if (photo && (photo.size>5*1024*1024 || !["image/jpeg","image/png","image/webp"].includes(photo.type))) throw new Error("Use JPEG, PNG, or WebP photos up to 5 MB each. Convert HEIC photos first.");
       const dashboardData = dashboardPhoto ? await fileToBase64(dashboardPhoto) : null;
       const partData = partPhoto ? await fileToBase64(partPhoto) : null;
 
@@ -154,26 +158,20 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : "Unable to run diagnosis.");
     } finally {
+      running.current=false;
       setLoading(false);
     }
   }
 
-  const smsHref =
-    "sms:+17865388691?body=Hi%20I%20used%20MekaReports%20AI%20Diagnosis%20and%20need%20help%20with%20my%20car.%20VIN%3A%20" +
-    encodeURIComponent(vin) +
-    "%20Vehicle%3A%20" +
-    encodeURIComponent(vehicle) +
-    "%20Symptoms%3A%20" +
-    encodeURIComponent(symptoms);
-
   return (
     <>
+      {!initial ? <p className="mb-5 rounded-xl bg-amber-50 p-4 text-sm">This is an unsaved diagnostic. <Link href="/work-orders" className="font-bold underline">Open a work order</Link> to save a diagnosis to a customer and vehicle.</p> : null}
       {initial ? <p className="mb-5 rounded-xl border border-slate-200 bg-white p-4 text-sm"><Link className="font-bold text-red-700" href={`/work-orders/${initial.workOrderId}`}>← {initial.workOrderNumber}</Link> · Vehicle context loaded. Run a diagnostic, then choose Save Diagnosis to keep the result with this job.</p> : null}
       {initial && result && resultInput ? <section className="mb-5 space-y-3 rounded-xl border border-slate-200 bg-white p-4"><button disabled={saving || !!savedId} className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50" onClick={() => startSaving(async () => { const saved = await saveDiagnosis({ workOrderId: initial.workOrderId, ...resultInput, response: result }); setSaveMessage(saved.message ?? ""); if (saved.id) setSavedId(saved.id); })}>{saving ? "Saving…" : savedId ? "Diagnosis Saved" : "Save Diagnosis to Work Order"}</button>{saveMessage ? <p role="status" className="text-sm">{saveMessage}</p> : null}{savedId ? <div className="flex flex-wrap gap-4 text-sm font-bold text-red-700"><Link href={`/diagnoses/${savedId}`}>Open Saved Diagnosis</Link><Link href={`/work-orders/${initial.workOrderId}`}>Back to Work Order</Link></div> : null}</section> : null}
       <PageHeader
         eyebrow="MekaReports AI Diagnosis"
         title="AI-assisted vehicle diagnosis"
-        description="The original Smart Fix AI workflow is preserved here with VIN lookup, warning codes, symptoms, dashboard photos, part photos, safety severity, likely causes, testing guidance, and cost estimates."
+        description="Review symptoms, warning codes, and photos. Start from a work order when you want to save the result to the vehicle history."
       />
 
       <div className="overflow-hidden rounded-3xl bg-slate-950 text-white shadow-xl ring-1 ring-slate-900/10">
@@ -196,24 +194,28 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
                 value={vin}
                 maxLength={17}
                 onChange={(event) => setVin(event.target.value.toUpperCase())}
+                aria-label="VIN Number (optional)"
                 placeholder="VIN Number (optional)"
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
               <input
                 value={vehicle}
                 onChange={(event) => setVehicle(event.target.value)}
+                aria-label="Vehicle (Year Make Model Engine)"
                 placeholder="Vehicle (Year Make Model Engine)"
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
               <input
                 value={codes}
                 onChange={(event) => setCodes(event.target.value)}
+                aria-label="OBD Codes / Warning Lights"
                 placeholder="OBD Codes / Warning Lights"
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
               <input
                 value={context}
                 onChange={(event) => setContext(event.target.value)}
+                aria-label="Context (when it happens, repairs, speed, weather...)"
                 placeholder="Context (when it happens, repairs, speed, weather...)"
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
@@ -223,6 +225,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
               rows={5}
               value={symptoms}
               onChange={(event) => setSymptoms(event.target.value)}
+              aria-label="Describe the vehicle problem in detail."
               placeholder="Describe the vehicle problem in detail."
               className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-blue-500"
             />
@@ -233,7 +236,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
                 <span className="mt-1 block text-xs leading-5 text-slate-400">Upload a warning-light or instrument-cluster photo for AI analysis.</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(event) => setDashboardPhoto(event.target.files?.[0] ?? null)}
                   className="mt-3 block w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-semibold file:text-white"
                 />
@@ -245,7 +248,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
                 <span className="mt-1 block text-xs leading-5 text-slate-400">Upload a part photo for identification, location, and replacement guidance.</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(event) => setPartPhoto(event.target.files?.[0] ?? null)}
                   className="mt-3 block w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-red-600 file:px-3 file:py-2 file:font-semibold file:text-white"
                 />
@@ -266,7 +269,7 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
               {loading ? "Running MekaReports Scan..." : "Run Full Diagnostic"}
             </button>
 
-            {error ? <div className="rounded-xl border border-red-400/30 bg-red-500/15 p-4 text-sm text-red-200">{error}</div> : null}
+            {error ? <div role="alert" className="rounded-xl border border-red-400/30 bg-red-500/15 p-4 text-sm text-red-200">{error}</div> : null}
           </section>
 
           <section className="rounded-2xl border border-slate-700 bg-slate-900/90 p-5 sm:p-6">
@@ -380,11 +383,11 @@ export default function DiagnosisWorkspace({ initial }: { initial?: { vin: strin
               </div>
 
               <section className="rounded-2xl bg-gradient-to-r from-blue-600 to-red-600 p-6 text-center shadow-xl">
-                <h2 className="text-xl font-black">Need mechanic help?</h2>
-                <p className="mt-2 text-sm text-white/90">The existing Smart Fix Mobile Auto Repair contact option is preserved during the MekaReports transition.</p>
-                <a href={smsHref} className="mt-4 inline-flex rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg">
-                  Text Smart Fix
-                </a>
+                <h2 className="text-xl font-black">Continue the job</h2>
+                <p className="mt-2 text-sm text-white/90">{initial ? "Save the diagnosis above, then return to the work order to document findings and prepare the estimate." : "Open a work order and start diagnosis there to save results with the job."}</p>
+                <Link href={initial ? `/work-orders/${initial.workOrderId}` : "/work-orders"} className="mt-4 inline-flex rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg">
+                  {initial ? "Return to Work Order" : "Open Work Orders"}
+                </Link>
               </section>
             </div>
           ) : null}

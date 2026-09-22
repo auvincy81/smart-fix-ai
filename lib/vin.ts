@@ -25,7 +25,7 @@ export async function decodeVin(vin: string, signal?: AbortSignal): Promise<VinL
   try {
     const response = await fetch(
       `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(cleanVin)}?format=json`,
-      { method: "GET", cache: "no-store", signal }
+      { method: "GET", cache: "no-store", signal: signal ?? AbortSignal.timeout(10000) }
     );
 
     if (!response.ok) {

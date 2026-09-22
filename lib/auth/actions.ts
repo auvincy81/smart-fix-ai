@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { AuthResult, SignUpResult } from "./types";
 
@@ -49,7 +50,7 @@ export async function signOut(): Promise<AuthResult> {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return unavailable();
 
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({scope:"local"});
   if (error) {
     return {
       ok: false,
@@ -58,5 +59,6 @@ export async function signOut(): Promise<AuthResult> {
     };
   }
 
+  revalidatePath("/", "layout");
   return { ok: true, data: undefined };
 }

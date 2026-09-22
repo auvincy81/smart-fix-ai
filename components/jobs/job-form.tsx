@@ -10,11 +10,13 @@ import { formatTime } from "@/lib/jobs/time";
 import { primaryLink, secondaryLink } from "@/components/workshop/record-ui";
 
 const inputClass = "mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-4 focus:ring-red-100 disabled:bg-slate-100";
-export function JobForm({ kind, initial, options, statuses, editing = false, linked = false, action, cancelHref }: {
-  kind: "appointment" | "work-order"; initial: Record<string, string | number | null>; options: JobOptions;
+export function JobForm({ kind, initial, options, statuses, editing = false, linked = false, action, cancelHref, requestKey }: {
+  requestKey: string; kind: "appointment" | "work-order"; initial: Record<string, string | number | null>; options: JobOptions;
   statuses: string[]; editing?: boolean; linked?: boolean; action: (state: FormState, form: FormData) => Promise<FormState>; cancelHref: string;
 }) {
   const router = useRouter();
+  const [createKey]=useState(requestKey);
+  const [version]=useState(initial.updatedAt??"");
   const [state, formAction, pending] = useActionState(action, {});
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).map(([key, value]) => [key, String(value ?? "")])));
   const set = (key: string, value: string) => setValues((old) => ({ ...old, [key]: value }));
@@ -51,9 +53,10 @@ export function JobForm({ kind, initial, options, statuses, editing = false, lin
     // reset can otherwise clear the displayed choice while state still holds it.
     startTransition(() => formAction(form));
   }} className="max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+    <input type="hidden" name="requestKey" value={createKey}/><input type="hidden" name="updatedAt" value={version}/>
     <p className="mb-5 text-sm text-slate-500">Fields marked * are required. {isAppointment ? "Scheduling uses America/New_York, including daylight saving time." : "A work order number is assigned when you save."}</p>
     {state.message ? <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-800">{state.message}</p> : null}
-    <fieldset disabled={pending} className="grid gap-5 sm:grid-cols-2">
+    <p className="mb-4 text-sm text-slate-600">Choices show recent records. For an older customer, vehicle, or appointment, find its detail page and start the job there.</p><fieldset disabled={pending} className="grid gap-5 sm:grid-cols-2">
       {!isAppointment && !editing ? select("appointmentId", "Appointment (optional)", options.appointments.map((a) => ({ id: a.id, label: `${formatTime(a.label)} · ${options.customers.find((c) => c.id === a.customerId)?.label ?? "Customer"}` })), false) : <input type="hidden" name="appointmentId" value={values.appointmentId ?? ""} />}
       {select("customerId", "Customer *", options.customers, true, editing || !!values.appointmentId)}
       {select("vehicleId", isAppointment ? "Vehicle (optional)" : "Vehicle *", options.vehicles.filter((v) => v.customerId === values.customerId), !isAppointment, (editing && !isAppointment) || linked || !!chosenAppointment?.vehicleId)}

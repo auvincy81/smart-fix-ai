@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { requireShopContext } from "@/lib/auth/session";
@@ -35,7 +36,7 @@ export async function JobEditor({ kind, id, prefill = {} }: { kind: "appointment
     const existing = await appointmentWorkOrder(context.shop.id, record.id);
     if (existing) redirect(`/work-orders/${existing.id}`);
     if (!["requested", "confirmed", "checked_in"].includes(record.status)) redirect(`/appointments/${record.id}`);
-    initial = { ...initial, customerId: record.customerId, vehicleId: record.vehicleId, appointmentId: record.id, customerComplaint: record.customerConcern };
+    initial = { ...initial, customerId: record.customerId, vehicleId: record.vehicleId, appointmentId: record.id, customerComplaint: record.customerConcern, mileageIn: record.vehicleId ? (await getVehicle(context.shop.id,record.vehicleId)).mileage : "" };
   } else {
     if (prefill.customerId) initial.customerId = (await getCustomer(context.shop.id, prefill.customerId)).id;
     if (prefill.vehicleId) {
@@ -45,5 +46,5 @@ export async function JobEditor({ kind, id, prefill = {} }: { kind: "appointment
     }
   }
   const cancelHref = id ? `${base}/${id}` : initial.appointmentId ? `/appointments/${initial.appointmentId}` : base;
-  return <><PageHeader eyebrow={context.shop.name} title={`${id ? "Edit" : "New"} ${appt ? "Appointment" : "Work Order"}`} description={appt ? "Schedule a visit for a customer and their vehicle." : "Capture the complaint and vehicle details to prepare a diagnosis-ready job."} /><JobForm kind={kind} initial={initial} options={await jobOptions(context.shop.id)} statuses={statuses} editing={!!id} linked={linked} action={appt ? saveAppointment.bind(null, id ?? null) : saveWorkOrder.bind(null, id ?? null)} cancelHref={cancelHref} /></>;
+  return <><PageHeader eyebrow={context.shop.name} title={`${id ? "Edit" : "New"} ${appt ? "Appointment" : "Work Order"}`} description={appt ? "Schedule a visit for a customer and their vehicle." : "Capture the complaint and vehicle details to prepare a diagnosis-ready job."} /><JobForm requestKey={randomUUID()} kind={kind} initial={initial} options={await jobOptions(context.shop.id, {customerId: String(initial.customerId || ""), vehicleId: String(initial.vehicleId || ""), appointmentId: String(initial.appointmentId || "")})} statuses={statuses} editing={!!id} linked={linked} action={appt ? saveAppointment.bind(null, id ?? null) : saveWorkOrder.bind(null, id ?? null)} cancelHref={cancelHref} /></>;
 }

@@ -6,7 +6,7 @@ import { todayBounds } from "@/lib/jobs/time";
 export async function DashboardSnapshot() {
   const context = await getCurrentShopContext();
   const labels = ["Today's Appointments", "Vehicles In Service", "Open Work Orders", "Waiting for Customer Approval", "Completed Today", "Upcoming Services"];
-  if (!context.ok) return <>{labels.map((label) => <DashboardCard key={label} label={label} detail="Sign in and select your shop workspace to view real totals." />)}</>;
+  if (!context.ok) return <>{labels.map((label) => <DashboardCard key={label} label={label} detail={context.code === "SHOP_CONTEXT_UNAVAILABLE" ? "Shop totals temporarily unavailable. Please try again." : "Sign in and select your shop workspace to view real totals."} />)}</>;
   const db = await workshopDb();
   const shopId = context.data.shop.id;
   const active = ["open", "diagnosing", "waiting_approval", "approved", "in_progress"];

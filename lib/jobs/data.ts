@@ -46,24 +46,28 @@ export type JobOptions = {
   technicians: { id: string; label: string }[];
   appointments: { id: string; customerId: string; vehicleId: string | null; label: string; concern: string | null }[];
 };
-export async function jobOptions(shopId: string): Promise<JobOptions> {
+export async function jobOptions(shopId: string, selected: { customerId?: string; vehicleId?: string; appointmentId?: string } = {}): Promise<JobOptions> {
   const db = await workshopDb();
-  const [customers, tech] = await Promise.all([customerOptions(shopId), db.rpc("list_shop_technicians", { p_shop_id: shopId })]);
-  if (tech.error) throw new Error("Technicians are temporarily unavailable.");
-  const vehicles: JobOptions["vehicles"] = [];
-  for (let offset = 0; ; offset += 500) {
-    const { data, error } = await db.from("vehicles").select("id, customer_id, year, make, model, vin").eq("shop_id", shopId).order("id").range(offset, offset + 499);
-    if (error) throw new Error("Vehicles are temporarily unavailable.");
-    vehicles.push(...data.map((v) => ({ id: v.id, customerId: v.customer_id, label: [v.year, v.make, v.model, v.vin].filter(Boolean).join(" ") || "Vehicle details pending" })));
-    if (data.length < 500) break;
+  const [customers, tech, vehicleResult, appointmentResult] = await Promise.all([
+    customerOptions(shopId, selected.customerId), db.rpc("list_shop_technicians", { p_shop_id: shopId }),
+    db.from("vehicles").select("id, customer_id, year, make, model, vin").eq("shop_id", shopId).order("updated_at", { ascending: false }).order("id").limit(250),
+    db.from("appointments").select("id, customer_id, vehicle_id, scheduled_start, customer_concern").eq("shop_id", shopId).in("status", ["requested", "confirmed", "checked_in"]).order("scheduled_start", { ascending: false }).order("id").limit(250),
+  ]);
+  if (tech.error || vehicleResult.error || appointmentResult.error) throw new Error("Job choices are temporarily unavailable.");
+  if (selected.vehicleId && !vehicleResult.data.some(v => v.id === selected.vehicleId)) {
+    const current = await db.from("vehicles").select("id, customer_id, year, make, model, vin").eq("shop_id", shopId).eq("id", selected.vehicleId).maybeSingle();
+    if (current.error) throw new Error("Vehicle choices are temporarily unavailable.");
+    if (current.data) vehicleResult.data.push(current.data);
   }
-  const appointments: JobOptions["appointments"] = [];
-  for (let offset = 0; ; offset += 500) {
-    const { data, error } = await db.from("appointments").select("id, customer_id, vehicle_id, scheduled_start, customer_concern")
-      .eq("shop_id", shopId).in("status", ["requested", "confirmed", "checked_in"]).order("scheduled_start").order("id").range(offset, offset + 499);
-    if (error) throw new Error("Appointments are temporarily unavailable.");
-    appointments.push(...data.map((a) => ({ id: a.id, customerId: a.customer_id, vehicleId: a.vehicle_id, label: a.scheduled_start, concern: a.customer_concern })));
-    if (data.length < 500) break;
+  if (selected.appointmentId && !appointmentResult.data.some(a => a.id === selected.appointmentId)) {
+    const current = await db.from("appointments").select("id, customer_id, vehicle_id, scheduled_start, customer_concern").eq("shop_id", shopId).eq("id", selected.appointmentId).maybeSingle();
+    if (current.error) throw new Error("Appointment choices are temporarily unavailable.");
+    if (current.data) appointmentResult.data.push(current.data);
   }
+  // An appointment choice must always have its customer and vehicle available.
+  const customerIds = new Set(customers.map(c => c.id));
+  const vehicles = vehicleResult.data.filter(v => customerIds.has(v.customer_id)).map(v => ({ id: v.id, customerId: v.customer_id, label: [v.year, v.make, v.model, v.vin].filter(Boolean).join(" ") || "Vehicle details pending" }));
+  const vehicleIds = new Set(vehicles.map(v => v.id));
+  const appointments = appointmentResult.data.filter(a => customerIds.has(a.customer_id) && (!a.vehicle_id || vehicleIds.has(a.vehicle_id))).map(a => ({ id: a.id, customerId: a.customer_id, vehicleId: a.vehicle_id, label: a.scheduled_start, concern: a.customer_concern }));
   return { customers, vehicles, technicians: tech.data, appointments };
 }

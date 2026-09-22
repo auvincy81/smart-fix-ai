@@ -113,6 +113,16 @@ select lives_ok($$update appointments set internal_notes = 'advisor'$$, 'advisor
 select lives_ok($$update work_orders set technician_notes = 'advisor'$$, 'advisor edits jobs');
 select is((select internal_notes from appointments), 'advisor', 'advisor update persists');
 
+-- Insert-only IDs let a browser retry the same creation without duplicate jobs.
+select set_config('test.retry_appt',gen_random_uuid()::text,true);
+select lives_ok($$insert into appointments(id,shop_id,customer_id,vehicle_id,scheduled_start,status) values(current_setting('test.retry_appt')::uuid,current_setting('test.shop_b')::uuid,current_setting('test.customer_b')::uuid,current_setting('test.vehicle_b')::uuid,now(),'confirmed')$$,'advisor can supply a stable appointment retry ID');
+select throws_ok($$insert into appointments(id,shop_id,customer_id,vehicle_id,scheduled_start,status) values(current_setting('test.retry_appt')::uuid,current_setting('test.shop_b')::uuid,current_setting('test.customer_b')::uuid,current_setting('test.vehicle_b')::uuid,now(),'confirmed')$$,'23505',null,'appointment creation retry cannot duplicate');
+select set_config('test.retry_job',gen_random_uuid()::text,true);
+select lives_ok($$insert into work_orders(id,shop_id,customer_id,vehicle_id,status) values(current_setting('test.retry_job')::uuid,current_setting('test.shop_b')::uuid,current_setting('test.customer_b')::uuid,current_setting('test.vehicle_b')::uuid,'open')$$,'advisor can supply stable work-order retry ID');
+select throws_ok($$insert into work_orders(id,shop_id,customer_id,vehicle_id,status) values(current_setting('test.retry_job')::uuid,current_setting('test.shop_b')::uuid,current_setting('test.customer_b')::uuid,current_setting('test.vehicle_b')::uuid,'open')$$,'23505',null,'work-order creation retry cannot duplicate');
+select throws_ok($$update work_orders set id=gen_random_uuid()$$,'42501',null,'work-order IDs remain immutable');
+select throws_ok($$update appointments set id=gen_random_uuid()$$,'42501',null,'appointment IDs remain immutable');
+
 select set_config('request.jwt.claim.sub', '', true);
 select set_config('request.jwt.claims', '{}', true);
 select is((select count(*) from appointments), 0::bigint, 'missing identity sees no appointments');

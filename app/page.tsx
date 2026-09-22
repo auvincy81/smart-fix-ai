@@ -1,10 +1,12 @@
+import { redirect } from "next/navigation";
+import { getCurrentShopContext } from "@/lib/auth/session";
 import Link from "next/link";
 import { DashboardCard } from "@/components/dashboard-card";
 import { PageHeader } from "@/components/page-header";
 import { DashboardSnapshot } from "@/components/jobs/dashboard-snapshot";
 
 const cards = [
-  ["Customer Questions", "New customer concerns will be surfaced here."],
+  ["Customer Questions", "Customer messaging inbox is not available in this beta."],
 ] as const;
 
 const quickActions = [
@@ -15,7 +17,9 @@ const quickActions = [
   ["Schedule Appointment", "/appointments/new"],
 ] as const;
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const context=await getCurrentShopContext();
+  if(!context.ok && context.code==="NO_SHOP_MEMBERSHIP")redirect("/onboarding");
   return (
     <>
       <PageHeader
@@ -50,12 +54,12 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-slate-950">Today&apos;s Shop Activity</h2>
-              <p className="mt-1 text-sm text-slate-500">A future timeline of appointments, check-ins, diagnoses, approvals, repairs, and completed jobs.</p>
+              <p className="mt-1 text-sm text-slate-500">Use appointments for arrivals and work orders for the next step on each job.</p>
             </div>
           </div>
           <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-            <p className="font-semibold text-slate-700">A combined activity timeline is coming later.</p>
-            <p className="mt-1 text-sm text-slate-500">View current activity in Appointments and Work Orders.</p>
+            <p className="font-semibold text-slate-700">Open your live shop lists.</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-4"><Link className="min-h-12 rounded-xl border px-4 py-3 font-bold text-red-700" href="/appointments">View Appointments</Link><Link className="min-h-12 rounded-xl border px-4 py-3 font-bold text-red-700" href="/work-orders">View Work Orders</Link></div>
           </div>
         </section>
 

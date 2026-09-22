@@ -18,6 +18,7 @@ export function NewInspectionForm({ orders, technicians, initialOrder, initialTy
   return <form method="post" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); startTransition(() => action(data)); }} className="max-w-3xl space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
     {state.message ? <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{state.message}</p> : null}
     {!orders.length ? <p>Create a work order before starting an inspection. <Link href="/work-orders/new" className="font-bold text-red-700">New Work Order</Link></p> : null}
+    <p className="text-sm text-slate-600">Showing recent work orders. For an older job, open its work-order page and choose Start Inspection.</p>
     <input type="hidden" name="requestKey" value={requestKey} />
     <fieldset disabled={pending} className="space-y-5">
       <label className="block text-sm font-bold">Work order *<select required name="workOrderId" value={order} onChange={(e) => { setOrder(e.target.value); setTechnician(orders.find((o) => o.id === e.target.value)?.technicianId || initialTechnician); }} className={input}><option value="">Choose a work order</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>

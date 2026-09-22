@@ -11,5 +11,5 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
   const context = await requireShopContext();
   const vehicle = await getVehicle(context.shop.id, (await params).id);
   if (!canManageRecords(context.role)) redirect(`/vehicles/${vehicle.id}`);
-  return <><PageHeader eyebrow={context.shop.name} title="Edit Vehicle" description={vehicleTitle(vehicle)} /><RecordForm kind="vehicle" initial={{ ...vehicle }} customers={await customerOptions(context.shop.id)} action={saveVehicle.bind(null, vehicle.id)} cancelHref={`/vehicles/${vehicle.id}`} submitLabel="Save Changes" /></>;
+  return <><PageHeader eyebrow={context.shop.name} title="Edit Vehicle" description={vehicleTitle(vehicle)} /><RecordForm kind="vehicle" initial={{ ...vehicle }} customers={await customerOptions(context.shop.id, vehicle.customerId)} action={saveVehicle.bind(null, vehicle.id)} cancelHref={`/vehicles/${vehicle.id}`} submitLabel="Save Changes" /></>;
 }

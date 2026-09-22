@@ -22,6 +22,8 @@ function safeError(code?: string): FormState {
 export async function saveAppointment(id: string | null, _state: FormState, form: FormData): Promise<FormState> {
   const context = await requireShopContext();
   if (!canManageRecords(context.role)) return { message: "Your shop role allows viewing appointments only." };
+  const key=z.uuid().safeParse(form.get("requestKey")); const version=String(form.get("updatedAt")||"");
+  if ((!id && !key.success)||(id&&!version))return {message:"Reload this form before saving."};
   const parsed = appointmentSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { message: "Review the highlighted fields.", errors: parsed.error.flatten().fieldErrors };
   const d = parsed.data;
@@ -34,13 +36,15 @@ export async function saveAppointment(id: string | null, _state: FormState, form
     if (vehicle.error || !vehicle.data) return { errors: { vehicleId: ["Choose a vehicle belonging to this customer."] } };
   }
   const existing = id ? await getAppointment(context.shop.id, id) : null;
+  if (existing && existing.updatedAt!==version)return {message:"This record changed after you opened the form. Reload and review before saving."};
   if (existing && (d.customerId !== existing.customerId || (d.status !== existing.status && !appointmentTransitions[existing.status].includes(d.status)))) return safeError("22023");
   if (!existing && d.status !== "requested" && d.status !== "confirmed") return safeError("22023");
   const values = { vehicle_id: d.vehicleId, scheduled_start: d.scheduledStart!, scheduled_end: d.scheduledEnd,
     customer_concern: d.customerConcern, internal_notes: d.internalNotes, status: d.status };
-  const query = existing ? db.from("appointments").update(values).eq("id", existing.id).eq("shop_id", context.shop.id).eq("updated_at", existing.updatedAt)
-    : db.from("appointments").insert({ ...values, customer_id: d.customerId, shop_id: context.shop.id });
+  const query = existing ? db.from("appointments").update(values).eq("id", existing.id).eq("shop_id", context.shop.id).eq("updated_at", version)
+    : db.from("appointments").insert({ ...values, id:key.data, customer_id: d.customerId, shop_id: context.shop.id });
   const { data, error } = await query.select("id").single();
+  if (!id && error?.code === "23505") { const old=await db.from("appointments").select("id").eq("id",key.data!).eq("shop_id",context.shop.id).maybeSingle();if(old.data)redirect(`/appointments/${old.data.id}`); }
   if (error || !data) return safeError(error?.code);
   refreshJobs();
   redirect(`/appointments/${data.id}?saved=1`);
@@ -48,6 +52,8 @@ export async function saveAppointment(id: string | null, _state: FormState, form
 export async function saveWorkOrder(id: string | null, _state: FormState, form: FormData): Promise<FormState> {
   const context = await requireShopContext();
   if (!canManageRecords(context.role)) return { message: "Your shop role allows viewing work orders only." };
+  const key=z.uuid().safeParse(form.get("requestKey")); const version=String(form.get("updatedAt")||"");
+  if ((!id && !key.success)||(id&&!version))return {message:"Reload this form before saving."};
   const parsed = workOrderSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { message: "Review the highlighted fields.", errors: parsed.error.flatten().fieldErrors };
   const d = parsed.data;
@@ -70,16 +76,18 @@ export async function saveWorkOrder(id: string | null, _state: FormState, form: 
     }
   }
   const existing = id ? await getWorkOrder(context.shop.id, id) : null;
+  if (existing && existing.updatedAt!==version)return {message:"This record changed after you opened the form. Reload and review before saving."};
   if (existing && (d.customerId !== existing.customerId || d.vehicleId !== existing.vehicleId || d.appointmentId !== existing.appointmentId || (d.status !== existing.status && !workOrderTransitions[existing.status].includes(d.status)))) return safeError("22023");
   if (!existing && d.status !== "open" && d.status !== "draft") return safeError("22023");
   const values = { mileage_in: d.mileageIn, customer_complaint: d.customerComplaint, technician_notes: d.technicianNotes, assigned_technician_id: d.assignedTechnicianId, status: d.status };
-  const query = existing ? db.from("work_orders").update({ ...values, mileage_out: d.mileageOut }).eq("id", existing.id).eq("shop_id", context.shop.id).eq("updated_at", existing.updatedAt)
-    : db.from("work_orders").insert({ ...values, shop_id: context.shop.id, customer_id: d.customerId, vehicle_id: d.vehicleId, appointment_id: d.appointmentId });
+  const query = existing ? db.from("work_orders").update({ ...values, mileage_out: d.mileageOut }).eq("id", existing.id).eq("shop_id", context.shop.id).eq("updated_at", version)
+    : db.from("work_orders").insert({ ...values, id:key.data, shop_id: context.shop.id, customer_id: d.customerId, vehicle_id: d.vehicleId, appointment_id: d.appointmentId });
   const { data, error } = await query.select("id").single();
   if (error?.code === "23505" && d.appointmentId) {
     const linked = await appointmentWorkOrder(context.shop.id, d.appointmentId);
     if (linked) { refreshJobs(); redirect(`/work-orders/${linked.id}`); }
   }
+  if (!id && error?.code === "23505") { const old=await db.from("work_orders").select("id").eq("id",key.data!).eq("shop_id",context.shop.id).maybeSingle();if(old.data)redirect(`/work-orders/${old.data.id}`); }
   if (error || !data) return safeError(error?.code);
   refreshJobs();
   redirect(`/work-orders/${data.id}?saved=1`);

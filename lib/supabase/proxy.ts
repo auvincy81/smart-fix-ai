@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabasePublicConfig } from "./config";
+import { boundedSupabaseFetch } from "./fetch";
 
 /** Refresh cookies on account and real-data routes; pages verify identity themselves. */
 export async function refreshSupabaseSession(request: NextRequest) {
@@ -12,6 +13,7 @@ export async function refreshSupabaseSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(config.url, config.publishableKey, {
+    global: { fetch: boundedSupabaseFetch },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -26,6 +28,6 @@ export async function refreshSupabaseSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  try { await supabase.auth.getClaims(); } catch { /* Pages verify identity and render a recoverable failure. */ }
   return response;
 }

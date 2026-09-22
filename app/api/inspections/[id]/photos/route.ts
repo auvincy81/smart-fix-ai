@@ -31,11 +31,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const item = await db.from("inspection_items").select("id").eq("id", fields.data.itemId).eq("inspection_id", id).maybeSingle();
     if (item.error || !item.data) return Response.json({ error: "That item does not belong to this inspection." }, { status: 400 });
   }
-  const photoId = randomUUID();
+  const key=z.uuid().safeParse(form.get("requestKey")||randomUUID());
+  if(!key.success)return Response.json({error:"Reload the photo form before uploading."},{status:400});
+  const photoId=key.data;
+  const previous=await db.from("inspection_photos").select("id").eq("id",photoId).eq("inspection_id",id).eq("shop_id",context.data.shop.id).maybeSingle();
+  if(previous.data)return Response.json({id:previous.data.id},{status:201});
   const path = `${context.data.shop.id}/${id}/${photoId}.jpg`;
   const storage = db.storage.from("inspection-photos");
   const uploaded = await storage.upload(path, photo, { contentType: "image/jpeg", upsert: false });
-  if (uploaded.error) return Response.json({ error: "Photo storage is temporarily unavailable. Try again." }, { status: 503 });
+  if (uploaded.error) {
+    const retry=await db.from("inspection_photos").select("id").eq("id",photoId).eq("inspection_id",id).eq("shop_id",context.data.shop.id).maybeSingle();
+    if(retry.data)return Response.json({id:retry.data.id},{status:201});
+    return Response.json({ error: "Photo storage is temporarily unavailable. Try again." }, { status: 503 });
+  }
   const saved = await db.from("inspection_photos").insert({ id: photoId, shop_id: context.data.shop.id, inspection_id: id, inspection_item_id: fields.data.itemId || null, storage_path: path, caption: fields.data.caption || null });
   if (saved.error) {
     await storage.remove([path]);

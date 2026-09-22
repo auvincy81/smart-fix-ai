@@ -1,5 +1,7 @@
 import { decodeVin } from "@/lib/vin";
 import OpenAI from "openai";
+import { getCurrentShopContext } from "@/lib/auth/session";
+import { normalizeInspectionPhoto, photoLimit } from "@/lib/inspections/images";
 
 export const runtime = "nodejs";
 
@@ -42,12 +44,37 @@ function buildDataUrl(image: UploadedImage): string | null {
 
 export async function POST(request: Request) {
   try {
+    const shop = await getCurrentShopContext();
+    if (!shop.ok && shop.code === "SHOP_CONTEXT_UNAVAILABLE") return Response.json({error:"Account services are temporarily unavailable. Please try again."},{status:503});
+    if (!shop.ok) return Response.json({ error: "Sign in and open your shop before running a diagnosis." }, { status: 401 });
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return Response.json({ error: "Server misconfigured: OPENAI_API_KEY is missing." }, { status: 500 });
+      return Response.json({ error: "AI diagnosis is temporarily unavailable. Please try again later." }, { status: 500 });
     }
 
-    const rawBody: unknown = await request.json();
+    const maximum = 15 * 1024 * 1024;
+    if (!request.body || Number(request.headers.get("content-length")) > maximum) {
+      return Response.json({ error: "Use JPEG, PNG, or WebP photos up to 5 MB each." }, { status: 413 });
+    }
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.length;
+      if (size > maximum) {
+        await reader.cancel();
+        return Response.json({ error: "Use photos up to 5 MB each." }, { status: 413 });
+      }
+      chunks.push(part.value);
+    }
+    let rawBody: unknown;
+    try {
+      rawBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      return Response.json({ error: "Review the diagnostic form and try again." }, { status: 400 });
+    }
     const body = record(rawBody);
 
     const vin = text(body.vin).trim().toUpperCase();
@@ -55,8 +82,22 @@ export async function POST(request: Request) {
     const symptoms = text(body.symptoms).trim();
     const codes = text(body.codes).trim();
     const context = text(body.context).trim();
-    const dashboardPhoto = uploadedImage(body.dashboardPhoto);
-    const partPhoto = uploadedImage(body.partPhoto);
+    let dashboardPhoto = uploadedImage(body.dashboardPhoto);
+    let partPhoto = uploadedImage(body.partPhoto);
+    try {
+      const normalize = async (image: UploadedImage): Promise<UploadedImage> => {
+        if (!image?.data) return null;
+        if (image.data.length > Math.ceil(photoLimit / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(image.data)) {
+          throw new Error("Invalid image");
+        }
+        const bytes = Buffer.from(image.data, "base64");
+        const normalized = await normalizeInspectionPhoto(new File([bytes], "diagnosis.jpg", { type: image.type || "image/jpeg" }));
+        return { type: "image/jpeg", data: normalized.toString("base64") };
+      };
+      [dashboardPhoto, partPhoto] = await Promise.all([normalize(dashboardPhoto), normalize(partPhoto)]);
+    } catch {
+      return Response.json({ error: "Choose valid JPEG, PNG, or WebP photos up to 5 MB each. HEIC photos must be converted first." }, { status: 400 });
+    }
     const dashboardDataUrl = buildDataUrl(dashboardPhoto);
     const partDataUrl = buildDataUrl(partPhoto);
 
@@ -67,6 +108,7 @@ export async function POST(request: Request) {
       );
     }
 
+    if ([vehicle,symptoms,codes,context].some(value=>value.length>10000) || vin.length>17) return Response.json({error:"Shorten the diagnostic details and check the VIN."},{status:400});
     const vinLookup = vin ? await decodeVin(vin) : null;
     const userContent: Array<
       | { type: "text"; text: string }
@@ -128,7 +170,7 @@ export async function POST(request: Request) {
       userContent.push({ type: "image_url", image_url: { url: partDataUrl } });
     }
 
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, timeout: 60000, maxRetries: 1 });
     const completion = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       temperature: 0.2,
@@ -147,7 +189,7 @@ export async function POST(request: Request) {
     try {
       parsedUnknown = JSON.parse(raw);
     } catch {
-      return Response.json({ error: "Model returned invalid JSON.", raw }, { status: 500 });
+      return Response.json({ error: "The diagnostic result could not be read. Please try again." }, { status: 502 });
     }
 
     const parsed = record(parsedUnknown);
@@ -211,8 +253,7 @@ export async function POST(request: Request) {
         confidence_note: text(part.confidence_note) || (partDataUrl ? "" : "No part photo was provided."),
       },
     });
-  } catch (caught: unknown) {
-    const message = caught instanceof Error ? caught.message : "Unexpected diagnostic error.";
-    return Response.json({ error: "Diagnosis could not be completed.", details: message }, { status: 500 });
+  } catch {
+    return Response.json({ error: "Diagnosis could not be completed. Check your connection and try again; your inputs are still available." }, { status: 503 });
   }
 }

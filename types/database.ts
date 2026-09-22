@@ -105,6 +105,47 @@ export type Database = {
           },
         ]
       }
+      beta_feedback: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          message: string
+          path: string
+          shop_id: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          message: string
+          path: string
+          shop_id: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          message?: string
+          path?: string
+          shop_id?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beta_feedback_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_approval_audits: {
         Row: {
           acknowledgment: string
